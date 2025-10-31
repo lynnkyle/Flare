@@ -330,14 +330,12 @@ class KnowledgeGraph(object):
 
 
 """
-    数据预处理: 使用MyGo的嵌入Embeddings
+    数据预处理: 使用Flare的嵌入Embeddings
 """
 
 
-def MyGo_preprocess(args, graph: KnowledgeGraph):
+def Flare_preprocess(args, graph: KnowledgeGraph):
     data_dir = os.path.join(args.data_dir, args.dataset)
-
-    model_path = os.path.join(data_dir, 'MyGo')
 
     valid_path, test_path = os.path.join(data_dir, 'valid2id.txt'), os.path.join(data_dir, 'test2id.txt')
     valid_triples, test_triples = load_triples(valid_path), load_triples(test_path)
@@ -356,11 +354,12 @@ def MyGo_preprocess(args, graph: KnowledgeGraph):
     # query_embedding = torch.load(os.path.join(model_path, 'query_embeddings.pt'))
     # entity_embedding = torch.load(os.path.join(model_path, 'entity_embeddings.pt'))
 
-    with open(os.path.join(model_path, 'query.json'), encoding='utf-8') as f:
+
+    with open(os.path.join(data_dir, 'query.json'), encoding='utf-8') as f:
         query = json.load(f)
-    ranks = np.load(os.path.join(model_path, "ranks.npy"))
-    topks = np.load(os.path.join(model_path, "topks.npy"))
-    topks_scores = np.load(os.path.join(model_path, 'topk_scores.npy'))
+    ranks = np.load(os.path.join(data_dir, "ranks.npy"))
+    topks = np.load(os.path.join(data_dir, "topks.npy"))
+    topks_scores = np.load(os.path.join(data_dir, 'topk_scores.npy'))
 
     data = []
     for idx, (h_idx, r_idx, t_idx) in enumerate(graph.valid_triples + graph.test_triples):
@@ -543,7 +542,7 @@ if __name__ == '__main__':
     parser.add_argument('--dim', type=int, default=768)
     parser.add_argument('--topk', type=int, default=20, help='number of candidates')
     parser.add_argument('--threshold', type=float, default=0.05, help='threshold for truncated sampling')
-    parser.add_argument('--kge_model', type=str, default='MyGo', help='TransE | SimKGC | CoLE')
+    parser.add_argument('--kge_model', type=str, default='Flare', help='TransE | SimKGC | CoLE')
     parser.add_argument('--add_special_tokens', type=bool, default=True, help='add special tokens')
     parser.add_argument('--add_entity_desc', type=bool, default=True)
     parser.add_argument('--max_seq_len', type=int, default=50, help='the max length of FB15K237')
@@ -569,8 +568,8 @@ if __name__ == '__main__':
     tokenizer.pad_token = tokenizer.eos_token
     graph = KnowledgeGraph(args, tokenizer)
 
-    if args.kge_model == 'MyGo':
-        valid_data, test_data = MyGo_preprocess(args, graph)
+    if args.kge_model == 'Flare':
+        valid_data, test_data = Flare_preprocess(args, graph)
     else:
         raise NotImplementedError()
 
