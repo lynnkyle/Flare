@@ -57,17 +57,17 @@ class ModelArguments:
         metadata={'help': 'TransE | CoLE | SimKGC'}
     )
     embedding_dim: int = field(
-        default=768,
+        default=256,
         metadata={'help': 'Embedding Dimension For KGEModel'}
     )
 
 
 @dataclass
 class DataArguments:
-    dataset: str = field(default=None, metadata={'help': 'Fine Turn On Which Dataset'})
-    train_path: str = field(default=None, metadata={'help': 'Path For Train File'})
-    eval_path: str = field(default=None, metadata={'help': 'Path For Valid File'})
-    test_path: str = field(default=None, metadata={'help': 'Path For Test File'})
+    dataset: str = field(default="data/DB15K", metadata={'help': 'Fine Turn On Which Dataset'})
+    train_path: str = field(default="data/DB15K/train.json", metadata={'help': 'Path For Train File'})
+    eval_path: str = field(default="data/DB15K/valid.json", metadata={'help': 'Path For Valid File'})
+    test_path: str = field(default="data/DB15K/test.json", metadata={'help': 'Path For Test File'})
     source_max_len: int = field(default=2048, metadata={'help': 'Maximum Source Sequence Length'})
     target_max_len: int = field(default=64, metadata={'help': 'Maximum Target Sequence Length'})
 

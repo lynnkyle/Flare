@@ -8,7 +8,7 @@ import torch
 from torch import nn
 import logging
 
-from dataset import KG
+from dataset import KG_Pre
 from model import FormerAlign
 from merge_tokens import get_entity_visual_tokens, get_entity_textual_tokens
 from utils import calculate_rank, metrics, get_rank, get_topK
@@ -142,7 +142,7 @@ if __name__ == '__main__':
     """
         创建数据集
     """
-    kg = KG(data=args.data, max_vis_len=-1)
+    kg = KG_Pre(data=args.data, max_vis_len=-1)
     kg_loader = torch.utils.data.DataLoader(kg, batch_size=args.batch_size, shuffle=False)
 
     """
@@ -161,15 +161,15 @@ if __name__ == '__main__':
                         score_function='tucker').cuda()
     # 模型加载
     # param1 = torch.load(f'ckpt/{args.model}/{args.data}/pre_trained.ckpt')['state_dict']
-    model.load_state_dict(torch.load(f'ckpt/{args.model}/{args.data}/1.ckpt')['state_dict'])
+    model.load_state_dict(torch.load(f'ckpt/{args.model}/{args.data}/db15k.ckpt')['state_dict'])
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     # 优化器加载
     # param2 = torch.load(f'ckpt/{args.model}/{args.data}/pre_trained.ckpt')['optimizer']
-    optimizer.load_state_dict(torch.load(f'ckpt/{args.model}/{args.data}/1.ckpt')['optimizer'])
+    optimizer.load_state_dict(torch.load(f'ckpt/{args.model}/{args.data}/db15k.ckpt')['optimizer'])
     lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=50, T_mult=2)
     # 学习率裁剪器加载
     # param3 = torch.load(f'ckpt/{args.model}/{args.data}/pre_trained.ckpt')['scheduler']
-    lr_scheduler.load_state_dict(torch.load(f'ckpt/{args.model}/{args.data}/1.ckpt')['scheduler'])
+    lr_scheduler.load_state_dict(torch.load(f'ckpt/{args.model}/{args.data}/db15k.ckpt')['scheduler'])
 
     model.eval()
     valid_and_test = kg.valid + kg.test

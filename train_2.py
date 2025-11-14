@@ -38,7 +38,7 @@ def train():
 
     if args.model_class == 'KGELlama':
         llm_config = model.config
-        kge_embedding_dir = os.path.join(args.dataset, args.kge_model)
+        kge_embedding_dir = args.dataset
         embed_model = EmbeddingModel(kge_embedding_dir, args.embedding_dim, 1024, llm_config.hidden_size,
                                      llm_config.hidden_act)
         model = KGELlama(tokenizer, model, embed_model)
@@ -62,7 +62,7 @@ def train():
 
 
 if __name__ == '__main__':
-    os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+    os.environ['CUDA_VISIBLE_DEVICES'] = '1'
     os.environ['NCCL_P2P_DISABLE'] = '1'
     os.environ['NCCL_IB_DISABLE'] = '1'
     torch.cuda.set_device(0)

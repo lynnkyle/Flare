@@ -247,6 +247,7 @@ class FormerAlign(nn.Module):
         loss /= 4  # loss = 4.7
         return loss
 
+
 import os
 import numpy as np
 import torch
