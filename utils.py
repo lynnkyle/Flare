@@ -111,7 +111,7 @@ class TrainingArguments(Seq2SeqTrainingArguments):
 
 @dataclass
 class EvaluationArguments:
-    checkpoint_dir: Optional[str] = field(default=None, metadata={'help': 'Checkpoint Dir'})
+    checkpoint_dir: Optional[str] = field(default="llm_log", metadata={'help': 'Checkpoint Dir'})
     full_finetune: bool = field(default=False, metadata={'help': 'FineTurn Entire Model Without Adapter'})
 
 
