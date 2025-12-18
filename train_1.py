@@ -40,69 +40,69 @@ torch.backends.cudnn.benchmark = False
 """
     db15k
 """
-# torch.cuda.set_device(1)
-# parser = argparse.ArgumentParser()
-# parser.add_argument('--data', type=str, default='DB15K')
-# parser.add_argument('--batch_size', type=int, default=2048)
-# parser.add_argument('--model', type=str, default='Flare')
-# parser.add_argument('--device', type=str, default='cuda:1')
-# parser.add_argument('--num_epoch', type=int, default=1500)
-# parser.add_argument('--valid_epoch', type=int, default=1)
-# parser.add_argument('--str_dim', default=256, type=int)
-# parser.add_argument('--num_kernels', default=512, type=int)
-# parser.add_argument('--max_vis_token', default=8, type=int)
-# parser.add_argument('--max_txt_token', default=4, type=int)
-# parser.add_argument("--no_write", action='store_true')
-# parser.add_argument('--str_dropout', default=0.6, type=float)
-# parser.add_argument('--visual_dropout', default=0.3, type=float)
-# parser.add_argument('--textual_dropout', default=0.1, type=float)
-# parser.add_argument('--lr', default=1e-3, type=float)
-# # Loss的超参数
-# parser.add_argument('--align_former', default=True, action='store_true')
-# parser.add_argument('--contrastive', default=0.001, type=float)
-# parser.add_argument('--before_align', default=0.001, type=float)
-# parser.add_argument('--after_align', default=0.001, type=float)
-# # Transformer的配置
-# parser.add_argument('--num_head', default=2, type=int)
-# parser.add_argument('--dim_hid', default=1024, type=int)
-# parser.add_argument('--num_layer_enc_ent', default=1, type=int)
-# parser.add_argument('--num_layer_enc_rel', default=1, type=int)
-# parser.add_argument('--num_layer_dec', default=1, type=int)
-# parser.add_argument('--dropout', default=0, type=float)
-# args = parser.parse_args()
-"""
-    mkg-y
-"""
-torch.cuda.set_device(0)
+torch.cuda.set_device(1)
 parser = argparse.ArgumentParser()
-parser.add_argument('--data', type=str, default='MKG-Y')
+parser.add_argument('--data', type=str, default='DB15K')
 parser.add_argument('--batch_size', type=int, default=2048)
 parser.add_argument('--model', type=str, default='Flare')
-parser.add_argument('--device', type=str, default='cuda:0')
+parser.add_argument('--device', type=str, default='cuda:1')
 parser.add_argument('--num_epoch', type=int, default=1500)
 parser.add_argument('--valid_epoch', type=int, default=1)
 parser.add_argument('--str_dim', default=256, type=int)
 parser.add_argument('--num_kernels', default=512, type=int)
 parser.add_argument('--max_vis_token', default=8, type=int)
-parser.add_argument('--max_txt_token', default=8, type=int)
+parser.add_argument('--max_txt_token', default=4, type=int)
 parser.add_argument("--no_write", action='store_true')
-parser.add_argument('--str_dropout', default=0.9, type=float)
-parser.add_argument('--visual_dropout', default=0.4, type=float)
+parser.add_argument('--str_dropout', default=0.6, type=float)
+parser.add_argument('--visual_dropout', default=0.3, type=float)
 parser.add_argument('--textual_dropout', default=0.1, type=float)
-parser.add_argument('--lr', default=5e-4, type=float)
+parser.add_argument('--lr', default=1e-3, type=float)
 # Loss的超参数
 parser.add_argument('--align_former', default=True, action='store_true')
 parser.add_argument('--contrastive', default=0.001, type=float)
 parser.add_argument('--before_align', default=0.001, type=float)
 parser.add_argument('--after_align', default=0.001, type=float)
 # Transformer的配置
-parser.add_argument('--num_head', default=4, type=int)
+parser.add_argument('--num_head', default=2, type=int)
 parser.add_argument('--dim_hid', default=1024, type=int)
 parser.add_argument('--num_layer_enc_ent', default=1, type=int)
 parser.add_argument('--num_layer_enc_rel', default=1, type=int)
 parser.add_argument('--num_layer_dec', default=1, type=int)
 parser.add_argument('--dropout', default=0, type=float)
 args = parser.parse_args()
+"""
+    mkg-y
+"""
+# torch.cuda.set_device(0)
+# parser = argparse.ArgumentParser()
+# parser.add_argument('--data', type=str, default='MKG-Y')
+# parser.add_argument('--batch_size', type=int, default=2048)
+# parser.add_argument('--model', type=str, default='Flare')
+# parser.add_argument('--device', type=str, default='cuda:0')
+# parser.add_argument('--num_epoch', type=int, default=1500)
+# parser.add_argument('--valid_epoch', type=int, default=1)
+# parser.add_argument('--str_dim', default=256, type=int)
+# parser.add_argument('--num_kernels', default=512, type=int)
+# parser.add_argument('--max_vis_token', default=8, type=int)
+# parser.add_argument('--max_txt_token', default=8, type=int)
+# parser.add_argument("--no_write", action='store_true')
+# parser.add_argument('--str_dropout', default=0.9, type=float)
+# parser.add_argument('--visual_dropout', default=0.4, type=float)
+# parser.add_argument('--textual_dropout', default=0.1, type=float)
+# parser.add_argument('--lr', default=5e-4, type=float)
+# # Loss的超参数
+# parser.add_argument('--align_former', default=True, action='store_true')
+# parser.add_argument('--contrastive', default=0.001, type=float)
+# parser.add_argument('--before_align', default=0.001, type=float)
+# parser.add_argument('--after_align', default=0.001, type=float)
+# # Transformer的配置
+# parser.add_argument('--num_head', default=4, type=int)
+# parser.add_argument('--dim_hid', default=1024, type=int)
+# parser.add_argument('--num_layer_enc_ent', default=1, type=int)
+# parser.add_argument('--num_layer_enc_rel', default=1, type=int)
+# parser.add_argument('--num_layer_dec', default=1, type=int)
+# parser.add_argument('--dropout', default=0, type=float)
+# args = parser.parse_args()
 
 """
     文件保存
@@ -137,12 +137,13 @@ kg_loader = torch.utils.data.DataLoader(kg, batch_size=args.batch_size, shuffle=
 visual_token_index, visual_ent_mask = get_entity_visual_tokens(args.data, max_num=args.max_vis_token)
 textual_token_index, textual_ent_mask = get_entity_textual_tokens(args.data, max_num=args.max_txt_token)
 model = FormerAlign(args, num_ent=kg.num_ent, num_rel=kg.num_rel, str_dim=args.str_dim,
-             visual_tokenizer='beit', textual_tokenizer='bert', visual_token_index=visual_token_index,
-             textual_token_index=textual_token_index, visual_ent_mask=visual_ent_mask,
-             textual_ent_mask=textual_ent_mask, num_head=args.num_head, dim_hid=args.dim_hid,
-             num_layer_enc_ent=args.num_layer_enc_ent, num_layer_enc_rel=args.num_layer_enc_rel,
-             num_layer_dec=args.num_layer_dec, dropout=args.dropout, str_dropout=args.str_dropout,
-             visual_dropout=args.visual_dropout, textual_dropout=args.textual_dropout, score_function='tucker').cuda()
+                    visual_tokenizer='beit', textual_tokenizer='bert', visual_token_index=visual_token_index,
+                    textual_token_index=textual_token_index, visual_ent_mask=visual_ent_mask,
+                    textual_ent_mask=textual_ent_mask, num_head=args.num_head, dim_hid=args.dim_hid,
+                    num_layer_enc_ent=args.num_layer_enc_ent, num_layer_enc_rel=args.num_layer_enc_rel,
+                    num_layer_dec=args.num_layer_dec, dropout=args.dropout, str_dropout=args.str_dropout,
+                    visual_dropout=args.visual_dropout, textual_dropout=args.textual_dropout,
+                    score_function='tucker').cuda()
 # 模型加载
 # param1 = torch.load(f'ckpt/{args.model}/{args.data}/pre_trained.ckpt')['state_dict']
 # model.load_state_dict(torch.load(f'ckpt/{args.model}/{args.data}/pre_trained_epoch_621_align_wpt_256_0.01_0.01_0.01.ckpt')['state_dict'])
@@ -184,7 +185,7 @@ def train_one_epoch(model, optimizer):
 
 
 @torch.no_grad()
-def valid_eval_metric(valid_or_test):
+def valid_eval_metric(valid_or_test, top_K_filter=3):
     rank_list = []
     ent_embs, rel_embs, _, _ = model()  # [!!!important]不要放在循环内, 导致测试时速度变慢
     for triple in valid_or_test:
@@ -193,12 +194,14 @@ def valid_eval_metric(valid_or_test):
         head_score = \
             model.score(torch.tensor([[kg.num_ent + kg.num_rel, r + kg.num_ent, t + kg.num_rel]]).cuda(), ent_embs,
                         rel_embs)[0].detach().cpu().numpy()  # [batch_size, num_entity]
-        head_rank = calculate_rank(head_score, h, kg.filter_dict[(-1, r, t)])
+        # head_rank = calculate_rank(head_score, h, kg.filter_dict[(-1, r, t)])
+        head_rank = calculate_rank(head_score, h, kg.filter_dict[(-1, r, t)], top_K_filter)
         rank_list.append(head_rank)
         tail_score = \
             model.score(torch.tensor([[h + kg.num_rel, r + kg.num_ent, kg.num_ent + kg.num_rel]]).cuda(), ent_embs,
                         rel_embs)[0].detach().cpu().numpy()  # [batch_size, num_entity]
-        tail_rank = calculate_rank(tail_score, t, kg.filter_dict[(h, r, -1)])
+        # tail_rank = calculate_rank(tail_score, t, kg.filter_dict[(h, r, -1)])
+        tail_rank = calculate_rank(tail_score, t, kg.filter_dict[(h, r, -1)], top_K_filter)
         rank_list.append(tail_rank)
     rank_list = np.array(rank_list)
     mr, mrr, hit10, hit3, hit1 = metrics(rank_list)
@@ -214,6 +217,7 @@ def valid_eval_metric(valid_or_test):
 best_mrr = 0
 
 best_result = None
+checkpoint_path = ""
 for epoch in range(args.num_epoch):
     loss = train_one_epoch(model, optimizer)
     lr_scheduler.step()
@@ -236,11 +240,14 @@ for epoch in range(args.num_epoch):
         logger.info(f"Hit3: {hit3}")
         logger.info(f"Hit1: {hit1}")
         if mrr > best_mrr:
+            if os.path.exists(checkpoint_path):
+                os.remove(checkpoint_path)
+                logger.info(f"Deleted previous checkpoint: {checkpoint_path}")
+            checkpoint_path = f'ckpt/{args.model}/{args.data}/adjust/{epoch + 1}.ckpt'
             best_mrr = mrr
             best_result = (mr, mrr, hit10, hit3, hit1)
             torch.save({'state_dict': model.state_dict(), 'optimizer': optimizer.state_dict(),
-                        'scheduler': lr_scheduler.state_dict()},
-                       f'ckpt/{args.model}/{args.data}/{epoch + 1}.ckpt')
+                        'scheduler': lr_scheduler.state_dict()}, checkpoint_path)
 
 logger.info(f'Best MRR: {best_mrr}, Best Result: {best_result}')
 logger.info("Done")

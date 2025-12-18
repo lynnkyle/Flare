@@ -141,6 +141,20 @@ class FormerAlign(nn.Module):
         rel_embs = self.str_drop(self.str_rel_ln(self.rel_emb)).squeeze(1)
         return torch.cat([ent_embs, self.lp_token], dim=0), rel_embs, align_before_loss, align_after_loss
 
+    def embedding(self):
+        ent_token = self.ent_token.tile(self.num_ent, 1, 1)
+        rep_ent_str = self.str_drop(self.str_ln(self.ent_emb)) + self.pos_str_ent
+        ent_visual_token = self.visual_token_embed(self.visual_token_index)
+        rep_ent_visual = self.visual_drop(self.visual_ln(self.proj_ent_visual(ent_visual_token))) + self.pos_visual_ent
+        ent_textual_token = self.textual_token_embed(self.textual_token_index)
+        rep_ent_textual = self.textual_drop(
+            self.textual_ln(self.proj_ent_textual(ent_textual_token))) + self.pos_textual_ent
+        ent_seq_before = torch.cat([ent_token, rep_ent_str, rep_ent_visual, rep_ent_textual], dim=1)
+        ent_seq_before = torch.cat([ent_token, rep_ent_str, rep_ent_visual, rep_ent_textual], dim=1)
+        ent_seq_after = self.ent_encoder(ent_seq_before, src_key_padding_mask=self.ent_mask)
+        ent_embs = ent_seq_after[:, 0]
+        return rep_ent_str, rep_ent_visual, rep_ent_textual, ent_embs
+
     def score(self, triples, emb_ent, emb_rel):
         """
         :param triples: [batch_size, 3]

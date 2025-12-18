@@ -32,21 +32,21 @@ class KG(Dataset):
         self.num_rel = len(self.rel2id)
 
         self.train = []
-        with open(os.path.join(self.dir, 'train.txt'), 'r') as f:
+        with open(os.path.join(self.dir, 'train2id.txt'), 'r') as f:
             lines = f.readlines()
             for line in lines:
                 h, r, t = line.strip().split('\t')
                 self.train.append((self.ent2id[h], self.rel2id[r], self.ent2id[t]))
 
         self.valid = []
-        with open(os.path.join(self.dir, 'valid.txt'), 'r') as f:
+        with open(os.path.join(self.dir, 'valid2id.txt'), 'r') as f:
             lines = f.readlines()
             for line in lines:
                 h, r, t = line.strip().split('\t')
                 self.valid.append((self.ent2id[h], self.rel2id[r], self.ent2id[t]))
 
         self.test = []
-        with open(os.path.join(self.dir, 'test.txt'), 'r') as f:
+        with open(os.path.join(self.dir, 'test2id.txt'), 'r') as f:
             lines = f.readlines()
             for line in lines:
                 h, r, t = line.strip().split('\t')
@@ -65,6 +65,8 @@ class KG(Dataset):
 
         self.max_vis_len_ent = max_vis_len
         self.max_vis_len_rel = max_vis_len
+
+        self.negative_sampling = {}
 
     def __len__(self):
         return len(self.train)
