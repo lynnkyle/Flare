@@ -10,12 +10,10 @@ import transformers
 from transformers import BitsAndBytesConfig, Seq2SeqTrainingArguments
 
 
-def calculate_rank(score, target, filter_list, top_K_filter):
+def calculate_rank(score, target, filter_list):
     score = score.copy()
     target_score = score[target]
     score[filter_list] = target_score - 1
-    # rank = np.sum(score > target_score) + 1
-    score[np.argsort(score)[-top_K_filter:]] = target_score - 1
     score[target] = target_score
     rank = np.sum(score > target_score) + 1
     # rank = np.sum(score > target_score) + np.sum(score == target_score) // 2 + 1

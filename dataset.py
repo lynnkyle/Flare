@@ -31,22 +31,29 @@ class KG(Dataset):
                 self.id2rel.append(line.strip())
         self.num_rel = len(self.rel2id)
 
+        train_file = 'train2id.txt'
+        valid_file = "valid2id.txt"
+        test_file = "test2id.txt"
+        if data == "MKG-W" or data == "MKG-Y":
+            train_file = "train.txt"
+            valid_file = "valid.txt"
+            test_file = "test.txt"
         self.train = []
-        with open(os.path.join(self.dir, 'train2id.txt'), 'r') as f:
+        with open(os.path.join(self.dir, train_file), 'r') as f:
             lines = f.readlines()
             for line in lines:
                 h, r, t = line.strip().split('\t')
                 self.train.append((self.ent2id[h], self.rel2id[r], self.ent2id[t]))
 
         self.valid = []
-        with open(os.path.join(self.dir, 'valid2id.txt'), 'r') as f:
+        with open(os.path.join(self.dir, valid_file), 'r') as f:
             lines = f.readlines()
             for line in lines:
                 h, r, t = line.strip().split('\t')
                 self.valid.append((self.ent2id[h], self.rel2id[r], self.ent2id[t]))
 
         self.test = []
-        with open(os.path.join(self.dir, 'test2id.txt'), 'r') as f:
+        with open(os.path.join(self.dir, test_file), 'r') as f:
             lines = f.readlines()
             for line in lines:
                 h, r, t = line.strip().split('\t')

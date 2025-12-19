@@ -150,10 +150,20 @@ class FormerAlign(nn.Module):
         rep_ent_textual = self.textual_drop(
             self.textual_ln(self.proj_ent_textual(ent_textual_token))) + self.pos_textual_ent
         ent_seq_before = torch.cat([ent_token, rep_ent_str, rep_ent_visual, rep_ent_textual], dim=1)
-        ent_seq_before = torch.cat([ent_token, rep_ent_str, rep_ent_visual, rep_ent_textual], dim=1)
         ent_seq_after = self.ent_encoder(ent_seq_before, src_key_padding_mask=self.ent_mask)
         ent_embs = ent_seq_after[:, 0]
-        return rep_ent_str, rep_ent_visual, rep_ent_textual, ent_embs
+        ent_str_emb = torch.mean(rep_ent_str, dim=1)
+        ent_visual_emb = torch.mean(rep_ent_visual, dim=1)
+        ent_textual_emb = torch.mean(rep_ent_textual, dim=1)
+        return ent_str_emb, ent_visual_emb, ent_textual_emb
+
+    def origin_embedding(self):
+        ent_str_emb = torch.mean(self.ent_emb, dim=1)
+        ent_visual_token = self.visual_token_embed(self.visual_token_index)
+        ent_visual_emb = torch.mean(ent_visual_token, dim=1)
+        ent_textual_token = self.textual_token_embed(self.textual_token_index)
+        ent_textual_emb = torch.mean(ent_textual_token, dim=1)
+        return ent_str_emb, ent_visual_emb, ent_textual_emb
 
     def score(self, triples, emb_ent, emb_rel):
         """

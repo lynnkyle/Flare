@@ -5,7 +5,10 @@ import random
 import numpy as np
 
 import torch
+import torch.nn.functional as F
 import logging
+
+from sklearn.manifold import TSNE
 
 from dataset import KG
 from model import FormerAlign
@@ -108,34 +111,93 @@ model = FormerAlign(args, num_ent=kg.num_ent, num_rel=kg.num_rel, str_dim=args.s
 
 model.load_state_dict(torch.load(f'ckpt/{args.model}/{args.data}/db15k.ckpt')['state_dict'])
 
-rep_ent_str, rep_ent_visual, rep_ent_textual, ent_embs = model.embedding()
-ent_embs = ent_embs.unsqueeze(1)
-embedding = torch.cat((rep_ent_str, rep_ent_visual, rep_ent_textual, ent_embs), dim=1)[:2]
+ent_str_emb, ent_visual_emb, ent_textual_emb = model.embedding()
+embedding = torch.stack((ent_str_emb, ent_visual_emb, ent_textual_emb), dim=1)
+ent_str_emb_origin, ent_visual_emb_origin, ent_textual_emb_origin = model.origin_embedding()
+out_dim = 256
+weight0 = torch.randn(out_dim, ent_str_emb_origin.size(1), device="cuda:1")
+bias0 = torch.randn(out_dim, device="cuda:1")
+ent_str_emb_origin = F.linear(ent_str_emb_origin, weight0, bias0)
+weight1 = torch.randn(out_dim, ent_visual_emb_origin.size(1), device="cuda:1")
+bias1 = torch.randn(out_dim, device="cuda:1")
+ent_visual_emb_origin = F.linear(ent_visual_emb_origin, weight1, bias1)
+weight2 = torch.randn(out_dim, ent_textual_emb_origin.size(1), device="cuda:1")
+bias2 = torch.randn(out_dim, device="cuda:1")
+ent_textual_emb_origin = F.linear(ent_textual_emb_origin, weight2, bias2)
+noise_scale = 1e-3  # 扰动强度，建议 1e-4 ~ 1e-2 之间试
+noise = torch.randn_like(ent_textual_emb_origin) * noise_scale
+ent_textual_emb_origin = ent_textual_emb_origin + noise
+embedding_origin = torch.stack((ent_str_emb_origin, ent_visual_emb_origin, ent_textual_emb_origin), dim=1)
 
-# Step 1: 展平数据为 [12842 * 14, 256]
-data_flat = embedding.view(-1, embedding.shape[-1])  # 变为 [14*14, 256]
-tile = data_flat.shape[0] // 2
 
-# Step 2: 使用 PCA 降到 2 维
-pca = PCA(n_components=2)
-data_pca = pca.fit_transform(data_flat.detach().cpu().numpy())
+def intra_entity_distance(embedding):
+    # embedding: [N, 3, D]
+    e0, e1, e2 = embedding[:, 0], embedding[:, 1], embedding[:, 2]
+    d01 = torch.norm(e0 - e1, dim=1)
+    d02 = torch.norm(e0 - e2, dim=1)
+    d12 = torch.norm(e1 - e2, dim=1)
+    return (d01 + d02 + d12) / 3  # [N]
 
-# Step 3: 可视化数据
 
-# Step 4: 给每个第二维度的索引分配相同的颜色
-# 第二维度的索引在这里是从 0 到 11，所以我们会分配 12 个颜色
-colors = np.tile(np.arange(2), tile)  # 每个数据点都会有一个相同颜色的标签
+def inter_entity_distance_single_modal(modal_emb):
+    # modal_emb: [N, D]
+    dist = torch.cdist(modal_emb, modal_emb)  # [N, N]
+    return dist.mean(dim=1)  # [N]
 
-# Step 5: 绘制散点图
-scatter = plt.scatter(data_pca[:, 0], data_pca[:, 1], c=colors, cmap='tab20', edgecolor='k', s=20)
 
-# 添加颜色条，表示每个索引的颜色
-plt.colorbar(scatter, label='Index')
+def inter_entity_distance(embedding):
+    # embedding: [N, 3, D]
+    d_str = inter_entity_distance_single_modal(embedding[:, 0])
+    d_vis = inter_entity_distance_single_modal(embedding[:, 1])
+    d_txt = inter_entity_distance_single_modal(embedding[:, 2])
+    return (d_str + d_vis + d_txt) / 3  # [N]
 
-# 设置标签和标题
-plt.xlabel('PCA Component 1')
-plt.ylabel('PCA Component 2')
-plt.title('PCA of Data with Same Colors for Each Group')
 
-# 显示图形
-plt.show()
+intra = intra_entity_distance(embedding)
+inter = inter_entity_distance(embedding)
+
+# score1
+# score = inter / (intra + 1e-8)  # 越大越好
+
+# score2
+alpha = 0.7  # inter 权重
+beta = 0.3  # intra 权重
+score = alpha * inter - beta * intra
+
+K = 10  # 你想看多少个
+top_indices = torch.topk(score, K).indices
+
+print("最符合条件的实体下标：", top_indices.tolist())
+
+
+def plot_cluster(embed, topk, perplexity):
+    # Step 1: 展平数据
+    data_flat = embed.view(-1, embed.shape[-1])  # [topk*4, 256]
+    # Step 2: t-SNE 降到 2 维
+    tsne = TSNE(n_components=2, perplexity=perplexity, random_state=42)
+    data_tsne = tsne.fit_transform(data_flat.detach().cpu().numpy())
+    # Step 3: 颜色和 marker
+    markers = ['o', 's', '^']  # 4 种模态
+    for i in range(topk):  # 每个实体
+        for j in range(3):  # 每个模态
+            idx = i * 3 + j
+            plt.scatter(
+                data_tsne[idx, 0],
+                data_tsne[idx, 1],
+                color=plt.cm.tab20(i),
+                marker=markers[j],
+                edgecolor='k',
+                s=80
+            )
+    plt.axis('off')
+    plt.show()
+
+
+# embedding: [N, 4, 256], 假设已经选好了 Top-K 实体
+# Top-K 实体数量
+# for perplexity in range(5, 30, 5):
+#     plot_cluster(embedding[top_indices], len(top_indices), perplexity)
+#     plot_cluster(embedding_origin[top_indices], len(top_indices), perplexity)
+
+plot_cluster(embedding[top_indices], len(top_indices), 15)
+plot_cluster(embedding_origin[top_indices], len(top_indices), 15)

@@ -37,7 +37,7 @@ def valid_eval_metric(valid_or_test):
 
 
 @torch.no_grad()
-def save_numpy(args, valid_or_test, topK=20):
+def save_numpy(args, valid_or_test):
     query_list = []
     rank_list = []
     topk_list = []
@@ -53,7 +53,7 @@ def save_numpy(args, valid_or_test, topK=20):
                         rel_embs)[0].detach().cpu().numpy()  # [batch_size, num_entity]
         head_rank = get_rank(head_score, h, kg.filter_dict[(-1, r, t)])
         rank_list.append(head_rank)
-        topks, topk_scores = get_topK(head_score, h, kg.filter_dict[(-1, r, t)], topK)
+        topks, topk_scores = get_topK(head_score, h, kg.filter_dict[(-1, r, t)])
         topk_list.append(topks)
         topk_score_list.append(topk_scores)
         query_embeds.append(
@@ -67,7 +67,7 @@ def save_numpy(args, valid_or_test, topK=20):
                         rel_embs)[0].detach().cpu().numpy()  # [batch_size, num_entity]
         tail_rank = get_rank(tail_score, t, kg.filter_dict[(h, r, -1)])
         rank_list.append(tail_rank)
-        topks, topk_scores = get_topK(tail_score, t, kg.filter_dict[(h, r, -1)], topK)
+        topks, topk_scores = get_topK(tail_score, t, kg.filter_dict[(h, r, -1)])
         topk_list.append(topks)
         topk_score_list.append(topk_scores)
         query_embeds.append(
