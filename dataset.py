@@ -73,8 +73,6 @@ class KG(Dataset):
         self.max_vis_len_ent = max_vis_len
         self.max_vis_len_rel = max_vis_len
 
-        self.negative_sampling = {}
-
     def __len__(self):
         return len(self.train)
 

@@ -4,7 +4,7 @@ from model_new import Tucker, ContrastiveLoss, AlignLoss, GaussianNoise
 
 
 class FormerAlign(nn.Module):
-    def __init__(self, args, num_ent, num_rel, str_dim,
+    def __init__(self, args, num_ent, num_rel, str_dim, filter_dict,
                  visual_tokenizer, textual_tokenizer,
                  visual_token_index, textual_token_index,
                  visual_ent_mask, textual_ent_mask,
@@ -18,7 +18,7 @@ class FormerAlign(nn.Module):
         self.num_ent = num_ent
         self.num_rel = num_rel
         self.str_dim = str_dim
-        self.num_align_sampling = 16
+        self.filter_dict = filter_dict
         self.num_contrastive_sampling = 512
         if visual_tokenizer == 'beit':
             visual_tokens = torch.load("tokens/visual.pth")
@@ -90,8 +90,7 @@ class FormerAlign(nn.Module):
                                                    dropout=dropout, batch_first=True)
         self.decoder = nn.TransformerEncoder(decoder_layer, num_layers=num_layer_dec)
 
-        self.align_before = AlignLoss(temp=0.5, alpha=0.5)
-        self.align_after = AlignLoss(temp=0.5, alpha=0.5)
+        self.align_before = AlignLoss()
         self.contrastive = ContrastiveLoss(temp=0.5)
 
         self.num_visual_token = visual_ent_mask.shape[1]
@@ -132,14 +131,11 @@ class FormerAlign(nn.Module):
         ent_seq_before = torch.cat([ent_token, rep_ent_str, rep_ent_visual, rep_ent_textual], dim=1)
         ent_seq_after = self.ent_encoder(ent_seq_before, src_key_padding_mask=self.ent_mask)
         align_before_loss = None
-        align_after_loss = None
-        if self.args.before_align != 0:
-            align_before_loss = self.align_loss_before_fusion(ent_seq_before)
-        if self.args.after_align != 0:
-            align_after_loss = self.align_loss_after_fusion(ent_seq_after)
+        if self.args.entity_align != 0:
+            align_before_loss = self.entity_align_loss(ent_seq_before)
         ent_embs = ent_seq_after[:, 0]
         rel_embs = self.str_drop(self.str_rel_ln(self.rel_emb)).squeeze(1)
-        return torch.cat([ent_embs, self.lp_token], dim=0), rel_embs, align_before_loss, align_after_loss
+        return torch.cat([ent_embs, self.lp_token], dim=0), rel_embs, align_before_loss
 
     def embedding(self):
         ent_token = self.ent_token.tile(self.num_ent, 1, 1)
@@ -184,35 +180,45 @@ class FormerAlign(nn.Module):
             tucker_emb = self.tucker_decoder(ctx_out, rel_out)
             score = torch.mm(tucker_emb, emb_ent[:-1].transpose(1, 0))  # [batch_size, num_entity]
         else:
-            score = torch.inner(ctx_out, emb_ent[:-1])  # [batch_size, num_entity, 1] -> [batch_size, num_entity] 降维
+            score = torch.inner(ctx_out,
+                                emb_ent[:-1])  # [batch_size, num_entity, 1] -> [batch_size, num_entity] 降维
         return score
 
-    def query(self, triples, emb_ent, emb_rel):
-        """
-        :param triples: [batch_size, 3]
-        :param emb_ent: [num_ent, str_dim]
-        :param emb_rel: [num_rel, str_dim]
-        :return: [batch_size, num_entity]
-        """
-        h_seq = emb_ent[triples[:, 0] - self.num_rel].unsqueeze(1) + self.pos_head  # [batch_size, 1, str_dim]
-        r_seq = emb_rel[triples[:, 1] - self.num_ent].unsqueeze(1) + self.pos_rel  # [batch_size, 1, str_dim]
-        t_seq = emb_ent[triples[:, 2] - self.num_rel].unsqueeze(1) + self.pos_tail  # [batch_size, 1, str_dim]
-        triple_seq = torch.cat([h_seq, r_seq, t_seq], dim=1)  # [batch_size, 3, str_dim]
-        triple_out = self.decoder(triple_seq)  # [batch_size, 3, str_dim]
-        query_out = triple_out[triples == self.num_ent + self.num_rel]  # [batch_size, str_dim]
-        return query_out
+    def pos_neg_logits(self, score, triples, label):
+        logits = torch.softmax(score, dim=-1)
+        pos_logits = logits.gather(1, label.unsqueeze(1)).squeeze(1)
+        neg_logits = []
+        batch_size = triples.size(0)
+        for i in range(batch_size):
+            h, r, t = triples[i].tolist()
+            h, r, t = h - self.num_rel, r - self.num_ent, t - self.num_rel
+            # 尾部负采样
+            if t == 15000:
+                candidate_scores_t = score[i].clone()
+                invalid_t = set(self.filter_dict.get((h, r, -1), []))
+                mask_t = torch.ones_like(candidate_scores_t, dtype=torch.bool)
+                mask_t[list(invalid_t)] = False
+                candidate_scores_t[~mask_t] = -float('inf')
+                t_neg = torch.argmax(candidate_scores_t).item()
+                neg_logits.append(logits[i, t_neg])
+            # 头部负样本
+            if h == 15000:
+                candidate_scores_h = score[i].clone()
+                invalid_h = set(self.filter_dict.get((-1, r, t), []))
+                mask_h = torch.ones_like(candidate_scores_h, dtype=torch.bool)
+                mask_h[list(invalid_h)] = False
+                candidate_scores_h[~mask_h] = -float('inf')
+                h_neg = torch.argmax(candidate_scores_h).item()
+                neg_logits.append(logits[i, h_neg])
+        neg_logits = torch.stack(neg_logits)
+        return pos_logits, neg_logits
 
-    """
-        FormerAlign 模型利用 Transformer 编码器中的 dropout 机制人为制造多模态嵌入的细微变化，相当于一种轻量级数据增强。
-        然后，它在批量（batch）中使用对比学习，让模型学会关注真正重要的信息，提高实体表示的区分性和鲁棒性。
-    """
-
-    def align_loss_before_fusion(self, ent_seq):
+    def entity_align_loss(self, ent_seq):
         """
         :param emb_ent: [num_ent, seq_len, str_dim] # [12842, 14, 256]
         :return:
         """
-        select_ents = torch.randperm(self.num_ent)[:self.num_align_sampling]
+        select_ents = torch.randperm(self.num_ent)
         ent_token = ent_seq[select_ents, 0, :]
         ent_str_emb = ent_seq[select_ents, 1, :]
         ent_visual_emb = torch.mean(ent_seq[select_ents, 2:2 + self.num_visual_token, :], dim=1)
@@ -223,25 +229,7 @@ class FormerAlign(nn.Module):
             str_visual_loss = self.align_before(ent_str_emb, ent_visual_emb)
         if self.args.max_txt_token != 0:
             str_textual_loss = self.align_before(ent_str_emb, ent_textual_emb)
-        return (str_visual_loss + str_textual_loss) / self.num_align_sampling
-
-    def align_loss_after_fusion(self, ent_seq):
-        """
-        :param emb_ent: [num_ent, str_dim]
-        :return:
-        """
-        select_ents = torch.randperm(self.num_ent)[:self.num_align_sampling]
-        ent_token = ent_seq[select_ents, 0, :]
-        ent_str_emb = ent_seq[select_ents, 1, :]
-        ent_visual_emb = torch.mean(ent_seq[select_ents, 2:2 + self.num_visual_token, :], dim=1)
-        ent_textual_emb = torch.mean(ent_seq[select_ents, 2 + self.num_visual_token:, :], dim=1)
-        str_visual_loss = 0
-        str_textual_loss = 0
-        if self.args.max_vis_token != 0:
-            str_visual_loss = self.align_after(ent_str_emb, ent_visual_emb)
-        if self.args.max_txt_token != 0:
-            str_textual_loss = self.align_after(ent_str_emb, ent_textual_emb)
-        return (str_visual_loss + str_textual_loss) / self.num_align_sampling
+        return (str_visual_loss + str_textual_loss) / self.num_ent
 
     def contrastive_loss(self, emb_ent):
         ent_token = self.ent_token.tile(self.num_ent, 1, 1)
@@ -270,6 +258,21 @@ class FormerAlign(nn.Module):
             loss += self.contrastive(emb_ent[select_ents], emb[select_ents])
         loss /= 4  # loss = 4.7
         return loss
+
+    def query(self, triples, emb_ent, emb_rel):
+        """
+        :param triples: [batch_size, 3]
+        :param emb_ent: [num_ent, str_dim]
+        :param emb_rel: [num_rel, str_dim]
+        :return: [batch_size, num_entity]
+        """
+        h_seq = emb_ent[triples[:, 0] - self.num_rel].unsqueeze(1) + self.pos_head  # [batch_size, 1, str_dim]
+        r_seq = emb_rel[triples[:, 1] - self.num_ent].unsqueeze(1) + self.pos_rel  # [batch_size, 1, str_dim]
+        t_seq = emb_ent[triples[:, 2] - self.num_rel].unsqueeze(1) + self.pos_tail  # [batch_size, 1, str_dim]
+        triple_seq = torch.cat([h_seq, r_seq, t_seq], dim=1)  # [batch_size, 3, str_dim]
+        triple_out = self.decoder(triple_seq)  # [batch_size, 3, str_dim]
+        query_out = triple_out[triples == self.num_ent + self.num_rel]  # [batch_size, str_dim]
+        return query_out
 
 
 import os

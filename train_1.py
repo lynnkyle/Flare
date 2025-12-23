@@ -60,8 +60,7 @@ torch.backends.cudnn.benchmark = False
 # # Loss的超参数
 # parser.add_argument('--align_former', default=True, action='store_true')
 # parser.add_argument('--contrastive', default=0.001, type=float)
-# parser.add_argument('--before_align', default=0.001, type=float)
-# parser.add_argument('--after_align', default=0.001, type=float)
+# parser.add_argument('--entity_align', default=0.001, type=float)
 # # Transformer的配置
 # parser.add_argument('--num_head', default=2, type=int)
 # parser.add_argument('--dim_hid', default=1024, type=int)
@@ -92,9 +91,8 @@ parser.add_argument('--textual_dropout', default=0.1, type=float)
 parser.add_argument('--lr', default=5e-4, type=float)
 # Loss的超参数
 parser.add_argument('--align_former', default=True, action='store_true')
-parser.add_argument('--contrastive', default=0.001, type=float)
-parser.add_argument('--before_align', default=0.001, type=float)
-parser.add_argument('--after_align', default=0.001, type=float)
+parser.add_argument('--contrastive', default=0, type=float)
+parser.add_argument('--entity_align', default=0.01, type=float)
 # Transformer的配置
 parser.add_argument('--num_head', default=4, type=int)
 parser.add_argument('--dim_hid', default=1024, type=int)
@@ -136,7 +134,7 @@ kg_loader = torch.utils.data.DataLoader(kg, batch_size=args.batch_size, shuffle=
 """
 visual_token_index, visual_ent_mask = get_entity_visual_tokens(args.data, max_num=args.max_vis_token)
 textual_token_index, textual_ent_mask = get_entity_textual_tokens(args.data, max_num=args.max_txt_token)
-model = FormerAlign(args, num_ent=kg.num_ent, num_rel=kg.num_rel, str_dim=args.str_dim,
+model = FormerAlign(args, num_ent=kg.num_ent, num_rel=kg.num_rel, str_dim=args.str_dim, filter_dict=kg.filter_dict,
                     visual_tokenizer='beit', textual_tokenizer='bert', visual_token_index=visual_token_index,
                     textual_token_index=textual_token_index, visual_ent_mask=visual_ent_mask,
                     textual_ent_mask=textual_ent_mask, num_head=args.num_head, dim_hid=args.dim_hid,
@@ -166,14 +164,12 @@ def train_one_epoch(model, optimizer):
     loss_fn = torch.nn.CrossEntropyLoss()
     for batch, label in kg_loader:
         # for batch, label in tqdm(kg_loader):
-        ent_embs, rel_embs, align_before_loss, align_after_loss = model()
+        ent_embs, rel_embs, align_before_loss = model()
         score = model.score(batch.cuda(), ent_embs, rel_embs)
         loss = loss_fn(score, label.cuda())
         if args.align_former is not False:
-            if args.before_align != 0:
-                loss += args.before_align * align_before_loss
-            if args.after_align != 0:
-                loss += args.after_align * align_after_loss
+            if args.entity_align != 0:
+                loss += args.entity_align * align_before_loss
         if args.contrastive != 0:
             loss += args.contrastive * model.contrastive_loss(ent_embs)
         total_loss += loss.item()
@@ -184,10 +180,43 @@ def train_one_epoch(model, optimizer):
     return total_loss
 
 
+def train_one_epoch_with_negative_sampling(model, optimizer):
+    model.train()
+    total_loss = 0
+    margin_ranking_loss_fn = torch.nn.MarginRankingLoss(margin=0.1)
+    cross_entropy_loss_fn = torch.nn.CrossEntropyLoss()
+    for batch, label in kg_loader:
+        # 1.embedding
+        ent_embs, rel_embs, align_before_loss = model()
+        # 2.样本score
+        score = model.score(batch.cuda(), ent_embs, rel_embs)
+        # 5.cross_entropy
+        loss = cross_entropy_loss_fn(score, label.cuda())
+        if args.align_former is not False:
+            if args.entity_align != 0:
+                loss += args.entity_align * align_before_loss
+        if args.contrastive != 0:
+            loss += args.contrastive * model.contrastive_loss(ent_embs)
+        total_loss += loss.item()
+
+        # 3.正负样本logit
+        pos_logit, neg_logit = model.pos_neg_logits(score, batch.cuda(), label.cuda())
+        # 4.margin_loss
+        target = torch.ones_like(neg_logit)
+        res = margin_ranking_loss_fn(pos_logit, neg_logit, target)
+        loss += 1 * res
+
+        optimizer.zero_grad()
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=0.1)
+        optimizer.step()
+    return total_loss
+
+
 @torch.no_grad()
 def valid_eval_metric(valid_or_test):
     rank_list = []
-    ent_embs, rel_embs, _, _ = model()  # [!!!important]不要放在循环内, 导致测试时速度变慢
+    ent_embs, rel_embs, _ = model()  # [!!!important]不要放在循环内, 导致测试时速度变慢
     for triple in valid_or_test:
         # for triple in tqdm(valid_or_test):
         h, r, t = triple
@@ -219,7 +248,7 @@ best_mrr = 0
 best_result = None
 checkpoint_path = ""
 for epoch in range(args.num_epoch):
-    loss = train_one_epoch(model, optimizer)
+    loss = train_one_epoch_with_negative_sampling(model, optimizer)
     lr_scheduler.step()
     logger.info(f'Epoch {epoch + 1}/{args.num_epoch}, Loss: {loss:.4f}')
     if (epoch + 1) % args.valid_epoch == 0:

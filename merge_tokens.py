@@ -12,7 +12,7 @@ def load_ent_map(dataset):
             ent_map[ent] = ent
     else:
         f = open("data/{}/entity2id.txt".format(dataset), "r")
-        for line in f.readlines()[1:]:
+        for line in f.readlines():
             ent, id = line[:-1].split(' ')
             ent_map[ent] = int(id)
     return ent_map

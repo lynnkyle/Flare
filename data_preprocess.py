@@ -127,7 +127,7 @@ if __name__ == '__main__':
     # Loss的超参数
     parser.add_argument('--align_former', default=True, action='store_true')
     parser.add_argument('--contrastive', default=0.001, type=float)
-    parser.add_argument('--before_align', default=0.001, type=float)
+    parser.add_argument('--entity_align', default=0.001, type=float)
     parser.add_argument('--after_align', default=0.001, type=float)
     # Transformer的配置
     parser.add_argument('--num_head', default=2, type=int)

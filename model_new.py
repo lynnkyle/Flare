@@ -83,52 +83,6 @@ class GaussianNoise(nn.Module):
         return x + noise
 
 
-"""
-    计算嵌入的相似度
-"""
-
-
-class AlignLoss(nn.Module):
-    def __init__(self, temp=0.5, alpha=0.5):
-        super(AlignLoss, self).__init__()
-        self.LARGE_NUM = 1e9
-        self.temp = temp
-        self.alpha = alpha
-        # self.rbf_map = RBFMapping(input_dim=str_dim, num_kernels=num_kernels)
-
-    def forward(self, emb1, emb2):
-        """:
-        :param emb1: [batch_size, dim]->[batch_size, 1, dim]
-        :param emb2: [batch_size, dim]->[1, batch_size, dim]
-        """
-
-        """
-            计算第一次、第二次过实体编码器Transformer得到的嵌入的损失
-        """
-        assert emb1.size() == emb2.size()
-        # emb1 = self.rbf_map(emb1)
-        # emb2 = self.rbf_map(emb2)
-        emb1 = F.normalize(emb1, p=2, dim=1)
-        emb2 = F.normalize(emb2, p=2, dim=1)
-        ent_num = emb1.shape[0]
-        target = F.one_hot(torch.arange(0, ent_num), num_classes=ent_num * 2).to(emb1.device)
-        mask = F.one_hot(torch.arange(ent_num), num_classes=ent_num).to(emb1.device)
-        logits_aa = torch.matmul(emb1, emb1.t()) / self.temp - self.LARGE_NUM * mask
-        logits_ab = torch.matmul(emb1, emb2.t()) / self.temp
-        logits_bb = torch.matmul(emb2, emb2.t()) / self.temp - self.LARGE_NUM * mask
-        logits_ba = torch.matmul(emb2, emb1.t()) / self.temp
-        logits_a = torch.cat([logits_ab, logits_aa], dim=1)
-        logits_b = torch.cat([logits_ba, logits_bb], dim=1)
-        loss_a = self.softXEnt(target, logits_a)
-        loss_b = self.softXEnt(target, logits_b)
-        return self.alpha * loss_a + (1 - self.alpha) * loss_b
-
-    def softXEnt(self, target, logits):
-        log_probs = F.log_softmax(logits, dim=1)
-        loss = -(target * log_probs).sum() / logits.shape[0]
-        return loss
-
-
 class Similarity(nn.Module):
     """
     Dot product or cosine similarity
@@ -141,6 +95,25 @@ class Similarity(nn.Module):
 
     def forward(self, x, y):
         return self.cos(x, y) / self.temp
+
+
+class AlignLoss(nn.Module):
+    def __init__(self, temperature=0.07):
+        super().__init__()
+        self.temperature = temperature
+
+    def forward(self, anchor, positive):
+        """
+        anchor   : [B, D]  结构模态
+        positive : [B, D]  视觉 / 文本模态
+        """
+        anchor = F.normalize(anchor, dim=-1)
+        positive = F.normalize(positive, dim=-1)
+
+        logits = torch.matmul(anchor, positive.t()) / self.temperature
+        labels = torch.arange(anchor.size(0), device=anchor.device)
+
+        return F.cross_entropy(logits, labels)
 
 
 class ContrastiveLoss(nn.Module):

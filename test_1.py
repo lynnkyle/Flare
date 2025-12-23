@@ -60,8 +60,7 @@ parser.add_argument('--lr', default=1e-3, type=float)
 # Loss的超参数
 parser.add_argument('--align_former', default=True, action='store_true')
 parser.add_argument('--contrastive', default=0.001, type=float)
-parser.add_argument('--before_align', default=0.001, type=float)
-parser.add_argument('--after_align', default=0.001, type=float)
+parser.add_argument('--entity_align', default=0.001, type=float)
 # Transformer的配置
 parser.add_argument('--num_head', default=2, type=int)
 parser.add_argument('--dim_hid', default=1024, type=int)
@@ -93,7 +92,7 @@ args = parser.parse_args()
 # # Loss的超参数
 # parser.add_argument('--align_former', default=True, action='store_true')
 # parser.add_argument('--contrastive', default=0.001, type=float)
-# parser.add_argument('--before_align', default=0.001, type=float)
+# parser.add_argument('--entity_align', default=0.001, type=float)
 # parser.add_argument('--after_align', default=0.001, type=float)
 # # Transformer的配置
 # parser.add_argument('--num_head', default=4, type=int)
@@ -165,14 +164,12 @@ def train_one_epoch(model, optimizer):
     loss_fn = torch.nn.CrossEntropyLoss()
     for batch, label in kg_loader:
         # for batch, label in tqdm(kg_loader):
-        ent_embs, rel_embs, align_before_loss, align_after_loss = model()
+        ent_embs, rel_embs, align_before_loss = model()
         score = model.score(batch.cuda(), ent_embs, rel_embs)
         loss = loss_fn(score, label.cuda())
         if args.align_former is not False:
-            if args.before_align != 0:
-                loss += args.before_align * align_before_loss
-            if args.after_align != 0:
-                loss += args.after_align * align_after_loss
+            if args.entity_align != 0:
+                loss += args.entity_align * align_before_loss
         if args.contrastive != 0:
             loss += args.contrastive * model.contrastive_loss(ent_embs)
         total_loss += loss.item()
