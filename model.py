@@ -184,6 +184,7 @@ class FormerAlign(nn.Module):
                                 emb_ent[:-1])  # [batch_size, num_entity, 1] -> [batch_size, num_entity] 降维
         return score
 
+    # 方式一. pos_neg_logits
     def pos_neg_logits(self, score, triples, label):
         logits = torch.softmax(score, dim=-1)
         pos_logits = logits.gather(1, label.unsqueeze(1)).squeeze(1)
@@ -193,7 +194,7 @@ class FormerAlign(nn.Module):
             h, r, t = triples[i].tolist()
             h, r, t = h - self.num_rel, r - self.num_ent, t - self.num_rel
             # 尾部负采样
-            if t == 15000:
+            if t == self.num_ent:
                 candidate_scores_t = score[i].clone()
                 invalid_t = set(self.filter_dict.get((h, r, -1), []))
                 mask_t = torch.ones_like(candidate_scores_t, dtype=torch.bool)
@@ -202,7 +203,7 @@ class FormerAlign(nn.Module):
                 t_neg = torch.argmax(candidate_scores_t).item()
                 neg_logits.append(logits[i, t_neg])
             # 头部负样本
-            if h == 15000:
+            if h == self.num_ent:
                 candidate_scores_h = score[i].clone()
                 invalid_h = set(self.filter_dict.get((-1, r, t), []))
                 mask_h = torch.ones_like(candidate_scores_h, dtype=torch.bool)
@@ -212,6 +213,19 @@ class FormerAlign(nn.Module):
                 neg_logits.append(logits[i, h_neg])
         neg_logits = torch.stack(neg_logits)
         return pos_logits, neg_logits
+
+    # 方式二. pos_neg_logits
+    # def pos_neg_logits(self, score, label):
+    #     logits = torch.softmax(score, dim=-1)
+    #     # 正样本 logits
+    #     pos_logits = logits.gather(1, label.unsqueeze(1)).squeeze(1)
+    #     # 负样本: mask 正样本
+    #     masked_score = score.clone()
+    #     masked_score.scatter_(1, label.unsqueeze(1).long(), -float('inf'))
+    #     neg_idx = masked_score.argmax(dim=1)
+    #     batch_idx = torch.arange(score.size(0)).cuda()
+    #     neg_logits = logits[batch_idx, neg_idx]
+    #     return pos_logits, neg_logits
 
     def entity_align_loss(self, ent_seq):
         """

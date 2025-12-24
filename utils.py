@@ -85,11 +85,11 @@ class TrainingArguments(Seq2SeqTrainingArguments):
 
     # KGEModel参数
     do_train: bool = field(default=True, metadata={'help': 'Train Or Not'})
-    do_eval: bool = field(default=True, metadata={'help': 'Eval Or Not'})
+    do_eval: bool = field(default=False, metadata={'help': 'Eval Or Not'})
     output_dir: str = field(default='./output', metadata={'help': 'Output Dir For Logs And Checkpoints'})
 
     dataloader_num_workers: int = field(default=8, metadata={'help': 'Treads To Load Data'})
-    num_train_epoches: int = field(default=3, metadata={'help': 'Total Epoch(1-3)'})
+    num_train_epoches: int = field(default=1, metadata={'help': 'Total Epoch(1-3)'})
     per_device_train_batch_size: int = field(default=1, metadata={'help': 'Per Device Training Batch Size'})
     gradient_accumulation_steps: int = field(default=16, metadata={'help': 'Gradient Accumulation Steps'})
 

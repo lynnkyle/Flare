@@ -37,13 +37,13 @@ def valid_eval_metric(valid_or_test):
 
 
 @torch.no_grad()
-def save_numpy(args, valid_or_test):
+def save_numpy(args, valid_or_test, topK):
     query_list = []
     rank_list = []
     topk_list = []
     topk_score_list = []
     query_embeds = []
-    ent_embs, rel_embs, _, _ = model()  # [!!!important]不要放在循环内, 导致测试时速度变慢
+    ent_embs, rel_embs, _ = model()  # [!!!important]不要放在循环内, 导致测试时速度变慢
     for triple in valid_or_test:
         # for triple in tqdm(valid_or_test):
         h, r, t = triple
@@ -53,7 +53,7 @@ def save_numpy(args, valid_or_test):
                         rel_embs)[0].detach().cpu().numpy()  # [batch_size, num_entity]
         head_rank = get_rank(head_score, h, kg.filter_dict[(-1, r, t)])
         rank_list.append(head_rank)
-        topks, topk_scores = get_topK(head_score, h, kg.filter_dict[(-1, r, t)])
+        topks, topk_scores = get_topK(head_score, h, kg.filter_dict[(-1, r, t)], topK)
         topk_list.append(topks)
         topk_score_list.append(topk_scores)
         query_embeds.append(
@@ -67,7 +67,7 @@ def save_numpy(args, valid_or_test):
                         rel_embs)[0].detach().cpu().numpy()  # [batch_size, num_entity]
         tail_rank = get_rank(tail_score, t, kg.filter_dict[(h, r, -1)])
         rank_list.append(tail_rank)
-        topks, topk_scores = get_topK(tail_score, t, kg.filter_dict[(h, r, -1)])
+        topks, topk_scores = get_topK(tail_score, t, kg.filter_dict[(h, r, -1)], topK)
         topk_list.append(topks)
         topk_score_list.append(topk_scores)
         query_embeds.append(
@@ -94,7 +94,7 @@ if __name__ == '__main__':
     """
         代码可复现
     """
-    torch.cuda.set_device(2)
+    torch.cuda.set_device(1)
     random.seed(0)
     np.random.seed(0)
     torch.manual_seed(0)
@@ -137,6 +137,8 @@ if __name__ == '__main__':
     parser.add_argument('--num_layer_dec', default=1, type=int)
     parser.add_argument('--dropout', default=0, type=float)
     parser.add_argument('--save_dir', default='data/DB15K', type=str)
+    # TopK设置
+    parser.add_argument('--top_k', default=20, type=int)
     args = parser.parse_args()
 
     """
@@ -151,6 +153,7 @@ if __name__ == '__main__':
     visual_token_index, visual_ent_mask = get_entity_visual_tokens(args.data, max_num=args.max_vis_token)
     textual_token_index, textual_ent_mask = get_entity_textual_tokens(args.data, max_num=args.max_txt_token)
     model = FormerAlign(args, num_ent=kg.num_ent, num_rel=kg.num_rel, str_dim=args.str_dim, visual_tokenizer='beit',
+                        filter_dict=kg.filter_dict,
                         textual_tokenizer='bert', visual_token_index=visual_token_index,
                         textual_token_index=textual_token_index,
                         visual_ent_mask=visual_ent_mask, textual_ent_mask=textual_ent_mask, num_head=args.num_head,
@@ -173,7 +176,8 @@ if __name__ == '__main__':
 
     model.eval()
     valid_and_test = kg.valid + kg.test
-    query_list, rank_list, topk_list, topk_score_list, ent_embs, query_embs = save_numpy(args, valid_and_test)
+    query_list, rank_list, topk_list, topk_score_list, ent_embs, query_embs = save_numpy(args, valid_and_test,
+                                                                                         topK=args.top_k)
     print(len(query_list))
     print(len(rank_list))
     print(len(topk_list))

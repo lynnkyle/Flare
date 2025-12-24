@@ -554,7 +554,7 @@ if __name__ == '__main__':
     random.seed(args.seed)
     np.random.seed(args.seed)
 
-    # 1. entity.json/relation.json制作
+    # # 1. entity.json/relation.json制作
     # save_triple2text(f'{args.data_dir}/{args.dataset}', 'train2id.txt', 'train.txt')
     # save_triple2text(f'{args.data_dir}/{args.dataset}', 'test2id.txt', 'test.txt')
     # save_triple2text(f'{args.data_dir}/{args.dataset}', 'valid2id.txt', 'valid.txt')

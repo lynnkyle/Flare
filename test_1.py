@@ -135,13 +135,14 @@ kg_loader = torch.utils.data.DataLoader(kg, batch_size=args.batch_size, shuffle=
 """
 visual_token_index, visual_ent_mask = get_entity_visual_tokens(args.data, max_num=args.max_vis_token)
 textual_token_index, textual_ent_mask = get_entity_textual_tokens(args.data, max_num=args.max_txt_token)
-model = FormerAlign(args, num_ent=kg.num_ent, num_rel=kg.num_rel, str_dim=args.str_dim,
-             visual_tokenizer='beit', textual_tokenizer='bert', visual_token_index=visual_token_index,
-             textual_token_index=textual_token_index, visual_ent_mask=visual_ent_mask,
-             textual_ent_mask=textual_ent_mask, num_head=args.num_head, dim_hid=args.dim_hid,
-             num_layer_enc_ent=args.num_layer_enc_ent, num_layer_enc_rel=args.num_layer_enc_rel,
-             num_layer_dec=args.num_layer_dec, dropout=args.dropout, str_dropout=args.str_dropout,
-             visual_dropout=args.visual_dropout, textual_dropout=args.textual_dropout, score_function='tucker').cuda()
+model = FormerAlign(args, num_ent=kg.num_ent, num_rel=kg.num_rel, str_dim=args.str_dim, filter_dict=kg.filter_dict,
+                    visual_tokenizer='beit', textual_tokenizer='bert', visual_token_index=visual_token_index,
+                    textual_token_index=textual_token_index, visual_ent_mask=visual_ent_mask,
+                    textual_ent_mask=textual_ent_mask, num_head=args.num_head, dim_hid=args.dim_hid,
+                    num_layer_enc_ent=args.num_layer_enc_ent, num_layer_enc_rel=args.num_layer_enc_rel,
+                    num_layer_dec=args.num_layer_dec, dropout=args.dropout, str_dropout=args.str_dropout,
+                    visual_dropout=args.visual_dropout, textual_dropout=args.textual_dropout,
+                    score_function='tucker').cuda()
 # 模型加载
 # param1 = torch.load(f'ckpt/{args.model}/{args.data}/pre_trained.ckpt')['state_dict']
 model.load_state_dict(torch.load(f'ckpt/{args.model}/{args.data}/db15k.ckpt')['state_dict'])
@@ -183,7 +184,7 @@ def train_one_epoch(model, optimizer):
 @torch.no_grad()
 def valid_eval_metric(valid_or_test):
     rank_list = []
-    ent_embs, rel_embs, _, _ = model()  # [!!!important]不要放在循环内, 导致测试时速度变慢
+    ent_embs, rel_embs, _ = model()  # [!!!important]不要放在循环内, 导致测试时速度变慢
     for triple in valid_or_test:
         # for triple in tqdm(valid_or_test):
         h, r, t = triple
@@ -207,4 +208,3 @@ res1 = valid_eval_metric(valid_or_test=kg.valid)
 print(res1)
 res2 = valid_eval_metric(valid_or_test=kg.test)
 print(res2)
-
