@@ -70,21 +70,40 @@ class KG(Dataset):
                     self.filter_dict[(h, r, -1)] = []
                 self.filter_dict[(h, r, -1)].append(t)
 
+        self.max_filter_labels = max(len(v) for v in self.filter_dict.values())
+
         self.max_vis_len_ent = max_vis_len
         self.max_vis_len_rel = max_vis_len
 
     def __len__(self):
         return len(self.train)
 
+    # def __getitem__(self, idx):
+    #     h, r, t = self.train[idx]
+    #     if random.random() < 0.5:
+    #         masked_triple = [self.num_ent + self.num_rel, r + self.num_ent, t + self.num_rel]
+    #         label = h
+    #     else:
+    #         masked_triple = [h + self.num_rel, r + self.num_ent, self.num_ent + self.num_rel]
+    #         label = t
+    #     return torch.tensor(masked_triple), torch.tensor(label)
+
     def __getitem__(self, idx):
         h, r, t = self.train[idx]
         if random.random() < 0.5:
-            masked_triple = [self.num_ent + self.num_rel, r + self.num_ent, t + self.num_rel]
+            masked_triplet = [self.num_ent + self.num_rel, r + self.num_ent, t + self.num_rel]
             label = h
+            all_possible_labels = self.filter_dict.get((-1, r, t), [])
         else:
-            masked_triple = [h + self.num_rel, r + self.num_ent, self.num_ent + self.num_rel]
+            masked_triplet = [h + self.num_rel, r + self.num_ent, self.num_ent + self.num_rel]
             label = t
-        return torch.tensor(masked_triple), torch.tensor(label)
+            # 获取训练集中所有可能的头实体 用于负采样
+            all_possible_labels = self.filter_dict.get((-1, r, t), [])
+        # 构造过滤filter
+        filter_mask = torch.zeros((self.num_ent,), dtype=torch.bool)
+        if len(all_possible_labels) > 0:
+            filter_mask[all_possible_labels] = True
+        return torch.tensor(masked_triplet), torch.tensor(label), torch.tensor(filter_mask)
 
     # def collate_fn(self, batch):
     #     data = torch.tensor([item[0] for item in batch])
@@ -186,6 +205,7 @@ class KGDataModule(object):
     def __init__(self, args, tokenizer, logger=None):
         self.args = args
         self.tokenizer = tokenizer
+        self.logger = logger
 
         train_example = json.load(open(args.train_path, 'r', encoding='utf-8'))
         eval_example = json.load(open(args.eval_path, 'r', encoding='utf-8'))

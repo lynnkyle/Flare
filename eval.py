@@ -27,65 +27,68 @@ class Evaluator(object):
     def eval_metric(self, dataset: KGDataset):
         self.model.eval()
         preds = []
-        raw_ranks = np.array([])
-        ranks = np.array([])
-        print_step = 1000
-        data_num = len(dataset)
+        all_raw_ranks = []
+        all_ranks = []
 
-        for begin_idx in range(0, data_num, print_step):
-            end_idx = min(begin_idx + print_step, data_num)
-            generated = []
-            for ex_idx, ex in enumerate(tqdm(dataset[begin_idx:end_idx])):
-                prompt = ex['input']
-                if self.args.model_class == 'KGELlama':
-                    inputs = self.tokenizer(prompt, return_tensors='pt')
-                    input_ids = inputs['input_ids'].cuda()
-                    output = self.model.generate(
-                        input_ids=input_ids,
-                        query_ids=torch.LongTensor([ex['query_id']]).to(input_ids.device),
-                        entity_ids=torch.LongTensor([ex['entity_ids']]).to(input_ids.device),
-                        generation_config=self.generation_config
-                    )
-                    generated.append(output.sequences[0].cpu().numpy().tolist())
+        generated = []
+
+        # 生成预测
+        for ex_idx, ex in enumerate(tqdm(dataset)):
+            prompt = ex['input']
+            if self.args.model_class == 'KGELlama':
+                inputs = self.tokenizer(prompt, return_tensors='pt')
+                input_ids = inputs['input_ids'].cuda()
+                output = self.model.generate(
+                    input_ids=input_ids,
+                    query_ids=torch.LongTensor([ex['query_id']]).to(input_ids.device),
+                    entity_ids=torch.LongTensor([ex['entity_ids']]).to(input_ids.device),
+                    generation_config=self.generation_config
+                )
+                generated.append(output.sequences[0].cpu().numpy().tolist())
+            else:
+                raise NotImplementedError
+            ex.pop('input')
+
+        batch_preds = self.tokenizer.batch_decode(generated, skip_special_tokens=True)
+
+        # 计算 rank
+        for ex_idx, ex in enumerate(dataset):
+            target = ex.pop('output')
+            rank = ex['rank']
+            pred = str(batch_preds[ex_idx]).strip()
+
+            topK_names = ex['topk_names']
+            if target == pred:
+                rank = 1
+            else:
+                if pred in topK_names:
+                    rank = min(rank, topK_names.index(pred) + 1)
                 else:
-                    raise NotImplementedError
-                ex.pop('input')
-            batch_preds = self.tokenizer.batch_decode(generated, skip_special_tokens=True)
-            for ex_idx, ex in enumerate(dataset[begin_idx:end_idx]):
-                target = ex.pop('output')
-                rank = ex['rank']
-                pred = str(batch_preds[ex_idx]).strip()
+                    rank = len(topK_names) + 1
 
-                topK_names = ex['topk_names']
-                if target == pred:
-                    rank = 1
-                else:
-                    if pred not in set(topK_names) or topK_names.index(pred) >= rank:
-                        rank += 1
+            preds.append(ex)
+            all_raw_ranks.append(ex['rank'])
+            all_ranks.append(rank)
 
-                # ex['target'] = target
-                # ex['pred_rank'] = rank
-                # ex['pred'] = pred
-                preds.append(ex)
-                raw_ranks = np.append(raw_ranks, ex['rank'])
-                ranks = np.append(ranks, rank)
+        # 全量计算指标
+        def compute_metrics(rank_list):
+            rank_arr = np.array(rank_list)
+            metrics = {
+                'hits1': np.mean(rank_arr <= 1),
+                'hits3': np.mean(rank_arr <= 3),
+                'hits10': np.mean(rank_arr <= 10),
+                'mrr': np.mean(1. / rank_arr)
+            }
+            return {k: round(v, 3) for k, v in metrics.items()}
 
-            def compute_metrics(rank):
-                metrics = {
-                    'hits1': np.mean(rank <= 1),
-                    'hits3': np.mean(rank <= 3),
-                    'hits10': np.mean(rank <= 10),
-                    'mrr': np.mean(1. / rank)
-                }
-                metrics = {k: round(v, 3) for k, v in metrics.items()}
-                return metrics
+        raw_metrics = compute_metrics(all_raw_ranks)
+        metrics = compute_metrics(all_ranks)
 
-            logger.info('=' * 80)
-            raw_metrics = compute_metrics(raw_ranks)
-            logger.info('raw_metrics: {}'.format(raw_metrics))
-            metrics = compute_metrics(ranks)
-            logger.info('metrics: {}'.format(metrics))
-            logger.info('=' * 80)
+        # 打印最终指标
+        logger.info('=' * 80)
+        logger.info('Final raw_metrics: {}'.format(raw_metrics))
+        logger.info('Final metrics: {}'.format(metrics))
+        logger.info('=' * 80)
 
         return preds, raw_metrics, metrics
 
@@ -109,10 +112,10 @@ def print_parameter_datatypes(model, logger=None):
 
 
 if __name__ == '__main__':
-    os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+    # os.environ['CUDA_VISIBLE_DEVICES'] = '1'
     os.environ['NCCL_P2P_DISABLE'] = '1'
     os.environ['NCCL_IB_DISABLE'] = '1'
-    torch.cuda.set_device(0)
+    torch.cuda.set_device(1)
     hfparser = HfArgumentParser((ModelArguments, DataArguments, EvaluationArguments, GenerationArguments))
     model_args, data_args, eval_args, generation_args, _ = hfparser.parse_args_into_dataclasses(
         return_remaining_strings=True)
@@ -131,8 +134,8 @@ if __name__ == '__main__':
 
     if args.model_class == 'KGELlama':
         tokenizer.add_tokens(['[QUERY]', '[ENTITY]'])
-        model = LlamaForCausalLM.from_pretrained(args.model_name_or_path, low_cpu_mem_usage=True, device_map='auto')
-        model = PeftModel.from_pretrained(model, os.path.join(args.checkpoint_dir, "adapter_model"))
+        model = LlamaForCausalLM.from_pretrained(args.model_name_or_path, low_cpu_mem_usage=True, device_map=None)
+        model = PeftModel.from_pretrained(model, os.path.join(args.checkpoint_dir, "adapter_model")).cuda(1)
         llm_config = model.config
         kge_embedding_dir = os.path.join(args.dataset, args.kge_model)
         embed_model = EmbeddingModel(kge_embedding_dir, args.embedding_dim, 1024, llm_config.hidden_size,

@@ -554,31 +554,31 @@ if __name__ == '__main__':
     random.seed(args.seed)
     np.random.seed(args.seed)
 
-    # # 1. entity.json/relation.json制作
-    # save_triple2text(f'{args.data_dir}/{args.dataset}', 'train2id.txt', 'train.txt')
-    # save_triple2text(f'{args.data_dir}/{args.dataset}', 'test2id.txt', 'test.txt')
-    # save_triple2text(f'{args.data_dir}/{args.dataset}', 'valid2id.txt', 'valid.txt')
-    # save_ent2desc(f'{args.data_dir}/{args.dataset}')
-    # save_rel2desc(f'{args.data_dir}/{args.dataset}')
-    # print("Done1!!!")
+    # 1. entity.json/relation.json制作
+    save_triple2text(f'{args.data_dir}/{args.dataset}', 'train2id.txt', 'train.txt')
+    save_triple2text(f'{args.data_dir}/{args.dataset}', 'test2id.txt', 'test.txt')
+    save_triple2text(f'{args.data_dir}/{args.dataset}', 'valid2id.txt', 'valid.txt')
+    save_ent2desc(f'{args.data_dir}/{args.dataset}')
+    save_rel2desc(f'{args.data_dir}/{args.dataset}')
+    print("Done1!!!")
 
     # 2. 提示词制作
-    tokenizer = AutoTokenizer.from_pretrained(args.llm_dir, use_fast=False)
-
-    tokenizer.pad_token = tokenizer.eos_token
-    graph = KnowledgeGraph(args, tokenizer)
-
-    if args.kge_model == 'Flare':
-        valid_data, test_data = Flare_preprocess(args, graph)
-    else:
-        raise NotImplementedError()
-
-    os.makedirs(f'{args.output_dir}', exist_ok=True)
-    llm_train, llm_valid = divide_valid(args, valid_data)
-    train_examples = make_dataset_mp(llm_train, graph, os.path.join(args.output_dir, 'train.json'))
-    valid_examples = make_dataset_mp(llm_valid, graph, os.path.join(args.output_dir, 'valid.json'))
-    test_examples = make_dataset_mp(test_data, graph, os.path.join(args.output_dir, 'test.json'))
-
-    args = vars(args)
-
-    print('Done2!!!')
+    # tokenizer = AutoTokenizer.from_pretrained(args.llm_dir, use_fast=False)
+    #
+    # tokenizer.pad_token = tokenizer.eos_token
+    # graph = KnowledgeGraph(args, tokenizer)
+    #
+    # if args.kge_model == 'Flare':
+    #     valid_data, test_data = Flare_preprocess(args, graph)
+    # else:
+    #     raise NotImplementedError()
+    #
+    # os.makedirs(f'{args.output_dir}', exist_ok=True)
+    # llm_train, llm_valid = divide_valid(args, valid_data)
+    # train_examples = make_dataset_mp(llm_train, graph, os.path.join(args.output_dir, 'train.json'))
+    # valid_examples = make_dataset_mp(llm_valid, graph, os.path.join(args.output_dir, 'valid.json'))
+    # test_examples = make_dataset_mp(test_data, graph, os.path.join(args.output_dir, 'test.json'))
+    #
+    # args = vars(args)
+    #
+    # print('Done2!!!')

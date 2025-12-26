@@ -55,7 +55,7 @@ class ModelArguments:
         metadata={'help': 'LLM Path'}
     )
     kge_model: Optional[str] = field(
-        default='MyGo',
+        default='',
         metadata={'help': 'TransE | CoLE | SimKGC'}
     )
     embedding_dim: int = field(
@@ -93,8 +93,8 @@ class TrainingArguments(Seq2SeqTrainingArguments):
     per_device_train_batch_size: int = field(default=1, metadata={'help': 'Per Device Training Batch Size'})
     gradient_accumulation_steps: int = field(default=16, metadata={'help': 'Gradient Accumulation Steps'})
 
-    eval_strategy: str = field(default="steps", metadata={"help": "Evaluation strategy: no, steps, epoch"})
-    eval_steps: int = field(default=2, metadata={"help": "Run evaluation every n steps"})
+    eval_strategy: str = field(default="no", metadata={"help": "Evaluation strategy: no, steps, epoch"})
+    eval_steps: int = field(default=0, metadata={"help": "Run evaluation every n steps"})
     per_device_eval_batch_size: int = field(default=1, metadata={'help': 'Per Device Eval Batch Size'})
 
     optim: str = field(default='paged_adamw_32bit', metadata={'help': 'Optimization Method'})
@@ -113,7 +113,7 @@ class TrainingArguments(Seq2SeqTrainingArguments):
 
 @dataclass
 class EvaluationArguments:
-    checkpoint_dir: Optional[str] = field(default="llm_log", metadata={'help': 'Checkpoint Dir'})
+    checkpoint_dir: Optional[str] = field(default="output/checkpoint-1545", metadata={'help': 'Checkpoint Dir'})
     full_finetune: bool = field(default=False, metadata={'help': 'FineTurn Entire Model Without Adapter'})
 
 

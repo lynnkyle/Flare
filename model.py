@@ -227,6 +227,28 @@ class FormerAlign(nn.Module):
     #     neg_logits = logits[batch_idx, neg_idx]
     #     return pos_logits, neg_logits
 
+    # 方式三. pos_neg_logits_vectorized
+    def pos_neg_logits_vectorized(self, score, label, filter_mask):
+        """
+        :param score: [batch_size, num_entity]
+        :param label: [batch_size,]
+        :param filter_mask: [batch_size, num_entity]
+        :return:
+        """
+        # 1. softmax
+        logits = torch.softmax(score, dim=-1)
+        # 2. 正样本pos_logit
+        pos_logits = logits.gather(1, label.unsqueeze(1)).squeeze(1)
+        # 3. 负样本neg_logit
+        masked_score = score.clone()
+        masked_score[filter_mask] = -float('inf')
+        masked_score.scatter_(1, label.unsqueeze(1), -float('inf'))
+        # 5. 寻找困难负样本
+        neg_idx = masked_score.argmax(dim=1)
+        batch_idx = torch.arange(score.size(0)).cuda()
+        neg_logits = logits[batch_idx, neg_idx]
+        return pos_logits, neg_logits
+
     def entity_align_loss(self, ent_seq):
         """
         :param emb_ent: [num_ent, seq_len, str_dim] # [12842, 14, 256]

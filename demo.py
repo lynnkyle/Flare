@@ -1,34 +1,39 @@
 # from dataset import KG
 #
-# kg = KG(data="MKG-W", max_vis_len=-1)
+# dataset = KG('DB15K', -1)
 #
-# query_dict = set()
 #
-# for triple in kg.train:
-#     h, r, t = triple
-#     query_dict.add((h, r, -1))
-#     query_dict.add((-1, r, t))
+# def count_exact_overlap(train, test):
+#     train_set = set(map(tuple, train))
+#     test_set = set(map(tuple, test))
+#     overlap = train_set & test_set
+#     return len(overlap), overlap
 #
-# num = 0
-# for triple in kg.test:
-#     h, r, t = triple
-#     if (h, r, -1) in query_dict:
-#         print(h, r, -1)
-#         num += 1
-#     if (-1, r, t) in query_dict:
-#         num += 1
-#         print(-1, r, t)
 #
-# print(num)
-import torch
+# def load_triples(file_path):
+#     triplets = []
+#     with open(file_path, 'r', encoding='utf-8') as f:
+#         for line in f.readlines():
+#             h, r, t = line.strip().split('\t')
+#             triplets.append((int(h), int(r), int(t)))
+#     return triplets
+#
+#
+# t = load_triples('/mnt/data2/zhz/lzy/Flare/data/valid.txt')
+#
+# print(len(t))
+# lenth, res = count_exact_overlap(dataset.valid, t)
+# print(lenth)
 
-score = torch.tensor([
-    [2.1, 0.3, 1.7, 4.2],
-    [0.5, 3.8, 1.2, 0.9]
-])
+def text_files_are_equal(file1, file2):
+    with open(file1, 'r', encoding='utf-8') as f1, open(file2, 'r', encoding='utf-8') as f2:
+        for idx, (line1, line2) in enumerate(zip(f1, f2)):
+            if line1.rstrip('\n') != line2.rstrip('\n'):
+                print(idx)
+                return False
+    return True
 
-label = torch.tensor([3, 1])
 
-masked_score = score.clone()
-masked_score.scatter_(1, label.unsqueeze(1), -float('inf'))
-print(masked_score)
+print(text_files_are_equal("/mnt/data2/zhz/lzy/Flare/data/train.txt", "/mnt/data2/zhz/lzy/Flare/data/DB15K/train.txt"))
+print(text_files_are_equal("/mnt/data2/zhz/lzy/Flare/data/valid.txt", "/mnt/data2/zhz/lzy/Flare/data/DB15K/valid.txt"))
+print(text_files_are_equal("/mnt/data2/zhz/lzy/Flare/data/test.txt", "/mnt/data2/zhz/lzy/Flare/data/DB15K/test.txt"))

@@ -4,16 +4,15 @@ CUDA_VISIBLE_DEVICES=0 nohup python train_1.py --data MKG-W --num_epoch 1500 --h
 
 CUDA_VISIBLE_DEVICES=0 nohup python train_1.py --data DB15K --num_epoch 1500 --hidden_dim 1024 --lr 1e-3 --dim 256 --max_vis_token 8 --max_txt_token 4 --num_head 2 --emb_dropout 0.6 --vis_dropout 0.3 --txt_dropout 0.1 --num_layer_dec 1 --mu 0.01 > log_DB15K.txt &
 
+CUDA_VISIBLE_DEVICES=0 nohup python train_1.py --data DB15K --num_epoch 1500 --hidden_dim 1024 --lr 5e-4 --dim 200 --max_vis_token 6 --max_txt_token 18 --num_head 2 --emb_dropout 0.9 --vis_dropout 0.4 --txt_dropout 0.1 --num_layer_dec 1 --mu 0.01 > log_MKG-Y.txt &
 """
 import os
 import sys
 import argparse
 import random
 import numpy as np
-from tqdm import tqdm
 
 import torch
-from torch import nn
 import logging
 
 from dataset import KG
@@ -40,12 +39,12 @@ torch.backends.cudnn.benchmark = False
 """
     db15k
 """
-# torch.cuda.set_device(1)
+# torch.cuda.set_device(0)
 # parser = argparse.ArgumentParser()
 # parser.add_argument('--data', type=str, default='DB15K')
 # parser.add_argument('--batch_size', type=int, default=2048)
 # parser.add_argument('--model', type=str, default='Flare')
-# parser.add_argument('--device', type=str, default='cuda:1')
+# parser.add_argument('--device', type=str, default='cuda:0')
 # parser.add_argument('--num_epoch', type=int, default=800)
 # parser.add_argument('--valid_epoch', type=int, default=1)
 # parser.add_argument('--str_dim', default=256, type=int)
@@ -58,9 +57,9 @@ torch.backends.cudnn.benchmark = False
 # parser.add_argument('--textual_dropout', default=0.1, type=float)
 # parser.add_argument('--lr', default=1e-3, type=float)
 # # Loss的超参数
-# parser.add_argument('--align_former', default=True, action='store_true')
+# parser.add_argument('--align_former', default=False, action='store_true')
 # parser.add_argument('--contrastive', default=0.001, type=float)
-# parser.add_argument('--entity_align', default=0.001, type=float)
+# parser.add_argument('--entity_align', default=0, type=float)
 # # Transformer的配置
 # parser.add_argument('--num_head', default=2, type=int)
 # parser.add_argument('--dim_hid', default=1024, type=int)
@@ -90,9 +89,9 @@ parser.add_argument('--visual_dropout', default=0.4, type=float)
 parser.add_argument('--textual_dropout', default=0.1, type=float)
 parser.add_argument('--lr', default=5e-4, type=float)
 # Loss的超参数
-parser.add_argument('--align_former', default=True, action='store_true')
-parser.add_argument('--contrastive', default=0, type=float)
-parser.add_argument('--entity_align', default=0.01, type=float)
+parser.add_argument('--align_former', default=False, action='store_true')
+parser.add_argument('--contrastive', default=0.01, type=float)
+parser.add_argument('--entity_align', default=0, type=float)
 # Transformer的配置
 parser.add_argument('--num_head', default=4, type=int)
 parser.add_argument('--dim_hid', default=1024, type=int)
@@ -185,7 +184,7 @@ def train_one_epoch_with_negative_sampling(model, optimizer):
     total_loss = 0
     margin_ranking_loss_fn = torch.nn.MarginRankingLoss(margin=0.1)
     cross_entropy_loss_fn = torch.nn.CrossEntropyLoss()
-    for batch, label in kg_loader:
+    for batch, label, filter_mask in kg_loader:
         # 1.embedding
         ent_embs, rel_embs, align_before_loss = model()
         # 2.样本score
@@ -200,12 +199,11 @@ def train_one_epoch_with_negative_sampling(model, optimizer):
         total_loss += loss.item()
 
         # 3.正负样本logit
-        pos_logit, neg_logit = model.pos_neg_logits(score, batch.cuda(), label.cuda())
+        pos_logit, neg_logit = model.pos_neg_logits_vectorized(score, label.cuda(), filter_mask.cuda())
         # 4.margin_loss
         target = torch.ones_like(neg_logit)
         res = margin_ranking_loss_fn(pos_logit, neg_logit, target)
-        loss += 1 * res
-
+        loss += 5 * res
         optimizer.zero_grad()
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=0.1)
