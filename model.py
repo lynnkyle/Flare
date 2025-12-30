@@ -184,56 +184,13 @@ class FormerAlign(nn.Module):
                                 emb_ent[:-1])  # [batch_size, num_entity, 1] -> [batch_size, num_entity] 降维
         return score
 
-    # 方式一. pos_neg_logits
-    def pos_neg_logits(self, score, triples, label):
-        logits = torch.softmax(score, dim=-1)
-        pos_logits = logits.gather(1, label.unsqueeze(1)).squeeze(1)
-        neg_logits = []
-        batch_size = triples.size(0)
-        for i in range(batch_size):
-            h, r, t = triples[i].tolist()
-            h, r, t = h - self.num_rel, r - self.num_ent, t - self.num_rel
-            # 尾部负采样
-            if t == self.num_ent:
-                candidate_scores_t = score[i].clone()
-                invalid_t = set(self.filter_dict.get((h, r, -1), []))
-                mask_t = torch.ones_like(candidate_scores_t, dtype=torch.bool)
-                mask_t[list(invalid_t)] = False
-                candidate_scores_t[~mask_t] = -float('inf')
-                t_neg = torch.argmax(candidate_scores_t).item()
-                neg_logits.append(logits[i, t_neg])
-            # 头部负样本
-            if h == self.num_ent:
-                candidate_scores_h = score[i].clone()
-                invalid_h = set(self.filter_dict.get((-1, r, t), []))
-                mask_h = torch.ones_like(candidate_scores_h, dtype=torch.bool)
-                mask_h[list(invalid_h)] = False
-                candidate_scores_h[~mask_h] = -float('inf')
-                h_neg = torch.argmax(candidate_scores_h).item()
-                neg_logits.append(logits[i, h_neg])
-        neg_logits = torch.stack(neg_logits)
-        return pos_logits, neg_logits
-
-    # 方式二. pos_neg_logits
-    # def pos_neg_logits(self, score, label):
-    #     logits = torch.softmax(score, dim=-1)
-    #     # 正样本 logits
-    #     pos_logits = logits.gather(1, label.unsqueeze(1)).squeeze(1)
-    #     # 负样本: mask 正样本
-    #     masked_score = score.clone()
-    #     masked_score.scatter_(1, label.unsqueeze(1).long(), -float('inf'))
-    #     neg_idx = masked_score.argmax(dim=1)
-    #     batch_idx = torch.arange(score.size(0)).cuda()
-    #     neg_logits = logits[batch_idx, neg_idx]
-    #     return pos_logits, neg_logits
-
-    # 方式三. pos_neg_logits_vectorized
+    # 方式三. pos_neg_logits_vectorized (选取top_1)
     def pos_neg_logits_vectorized(self, score, label, filter_mask):
         """
         :param score: [batch_size, num_entity]
         :param label: [batch_size,]
         :param filter_mask: [batch_size, num_entity]
-        :return:
+        :return: pos_logits[batch_size,]  neg_logits[batch_size,]
         """
         # 1. softmax
         logits = torch.softmax(score, dim=-1)
@@ -248,6 +205,27 @@ class FormerAlign(nn.Module):
         batch_idx = torch.arange(score.size(0)).cuda()
         neg_logits = logits[batch_idx, neg_idx]
         return pos_logits, neg_logits
+
+    # 方式四. pos_neg_logits_vectorized_topk(选取top_k)
+    # def pos_neg_logits_vectorized_topk(self, score, label, filter_mask, neg_num=3):
+    #     """
+    #     :param score: [batch_size, num_entity]
+    #     :param label: [batch_size,]
+    #     :param filter_mask: [batch_size, num_entity]
+    #     :return: pos_logits[batch_size,]  neg_logits[batch_size, neg_num]
+    #     """
+    #     # 1. softmax
+    #     logits = torch.softmax(score, dim=-1)
+    #     # 2. 正样本pos_logit
+    #     pos_logits = logits.gather(1, label.unsqueeze(1)).squeeze(1)
+    #     # 3. 负样本neg_logit
+    #     masked_score = score.clone()
+    #     masked_score[filter_mask] = -float('inf')
+    #     masked_score.scatter_(1, label.unsqueeze(1), -float('inf'))
+    #     # 5. 寻找困难负样本
+    #     _, neg_idx = masked_score.topk(k=neg_num, dim=1)
+    #     neg_logits = logits.gather(1, neg_idx)
+    #     return pos_logits, neg_logits
 
     def entity_align_loss(self, ent_seq):
         """

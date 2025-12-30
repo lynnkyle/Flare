@@ -29,7 +29,6 @@ class Evaluator(object):
         preds = []
         all_raw_ranks = []
         all_ranks = []
-
         generated = []
 
         # 生成预测
@@ -115,7 +114,7 @@ if __name__ == '__main__':
     # os.environ['CUDA_VISIBLE_DEVICES'] = '1'
     os.environ['NCCL_P2P_DISABLE'] = '1'
     os.environ['NCCL_IB_DISABLE'] = '1'
-    torch.cuda.set_device(1)
+    torch.cuda.set_device(0)
     hfparser = HfArgumentParser((ModelArguments, DataArguments, EvaluationArguments, GenerationArguments))
     model_args, data_args, eval_args, generation_args, _ = hfparser.parse_args_into_dataclasses(
         return_remaining_strings=True)
@@ -135,7 +134,7 @@ if __name__ == '__main__':
     if args.model_class == 'KGELlama':
         tokenizer.add_tokens(['[QUERY]', '[ENTITY]'])
         model = LlamaForCausalLM.from_pretrained(args.model_name_or_path, low_cpu_mem_usage=True, device_map=None)
-        model = PeftModel.from_pretrained(model, os.path.join(args.checkpoint_dir, "adapter_model")).cuda(1)
+        model = PeftModel.from_pretrained(model, os.path.join(args.checkpoint_dir, "adapter_model")).cuda(0)
         llm_config = model.config
         kge_embedding_dir = os.path.join(args.dataset, args.kge_model)
         embed_model = EmbeddingModel(kge_embedding_dir, args.embedding_dim, 1024, llm_config.hidden_size,

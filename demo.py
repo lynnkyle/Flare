@@ -25,15 +25,22 @@
 # lenth, res = count_exact_overlap(dataset.valid, t)
 # print(lenth)
 
-def text_files_are_equal(file1, file2):
-    with open(file1, 'r', encoding='utf-8') as f1, open(file2, 'r', encoding='utf-8') as f2:
-        for idx, (line1, line2) in enumerate(zip(f1, f2)):
-            if line1.rstrip('\n') != line2.rstrip('\n'):
-                print(idx)
-                return False
-    return True
+# def text_files_are_equal(file1, file2):
+#     with open(file1, 'r', encoding='utf-8') as f1, open(file2, 'r', encoding='utf-8') as f2:
+#         for idx, (line1, line2) in enumerate(zip(f1, f2)):
+#             if line1.rstrip('\n') != line2.rstrip('\n'):
+#                 print(idx)
+#                 return False
+#     return True
+#
+#
+# print(text_files_are_equal("/mnt/data2/zhz/lzy/Flare/data/train.txt", "/mnt/data2/zhz/lzy/Flare/data/DB15K/train.txt"))
+# print(text_files_are_equal("/mnt/data2/zhz/lzy/Flare/data/valid.txt", "/mnt/data2/zhz/lzy/Flare/data/DB15K/valid.txt"))
+# print(text_files_are_equal("/mnt/data2/zhz/lzy/Flare/data/test.txt", "/mnt/data2/zhz/lzy/Flare/data/DB15K/test.txt"))
 
+import json
 
-print(text_files_are_equal("/mnt/data2/zhz/lzy/Flare/data/train.txt", "/mnt/data2/zhz/lzy/Flare/data/DB15K/train.txt"))
-print(text_files_are_equal("/mnt/data2/zhz/lzy/Flare/data/valid.txt", "/mnt/data2/zhz/lzy/Flare/data/DB15K/valid.txt"))
-print(text_files_are_equal("/mnt/data2/zhz/lzy/Flare/data/test.txt", "/mnt/data2/zhz/lzy/Flare/data/DB15K/test.txt"))
+with open("/mnt/data2/zhz/lzy/Flare/data/DB15K/valid.json", "r", encoding="utf-8") as f:
+    data = json.load(f)
+
+print(len(data))

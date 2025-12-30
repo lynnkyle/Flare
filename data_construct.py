@@ -339,7 +339,6 @@ def Flare_preprocess(args, graph: KnowledgeGraph):
 
     valid_path, test_path = os.path.join(data_dir, 'valid2id.txt'), os.path.join(data_dir, 'test2id.txt')
     valid_triples, test_triples = load_triples(valid_path), load_triples(test_path)
-    triples = valid_triples + test_triples
 
     assert len(valid_triples) == len(graph.valid_triples)
     assert len(test_triples) == len(graph.test_triples)
@@ -350,10 +349,6 @@ def Flare_preprocess(args, graph: KnowledgeGraph):
 
     assert len(ent2id) == len(graph.ent2id)
     assert len(rel2id) == len(graph.rel2name)
-
-    # query_embedding = torch.load(os.path.join(model_path, 'query_embeddings.pt'))
-    # entity_embedding = torch.load(os.path.join(model_path, 'entity_embeddings.pt'))
-
 
     with open(os.path.join(data_dir, 'query.json'), encoding='utf-8') as f:
         query = json.load(f)
@@ -403,8 +398,9 @@ def Flare_preprocess(args, graph: KnowledgeGraph):
         }
         data.append(tail_prediction)
 
-    valid_output = data[:len(valid_triples)]
-    test_output = data[len(valid_triples):]
+    num_valid = len(valid_triples) * 2
+    valid_output = data[:num_valid]
+    test_output = data[num_valid:]
     return valid_output, test_output
 
 
@@ -540,8 +536,8 @@ if __name__ == '__main__':
     parser.add_argument('--dataset', type=str, default='DB15K', help='FB15K237 | WN18RR')
     parser.add_argument('--output_dir', type=str, default='data_KGELlama', help='output folder for dataset')
     parser.add_argument('--dim', type=int, default=768)
-    parser.add_argument('--topk', type=int, default=20, help='number of candidates')
-    parser.add_argument('--threshold', type=float, default=0.05, help='threshold for truncated sampling')
+    parser.add_argument('--topk', type=int, default=10, help='number of candidates')
+    parser.add_argument('--threshold', type=float, default=0.1, help='threshold for truncated sampling')
     parser.add_argument('--kge_model', type=str, default='Flare', help='TransE | SimKGC | CoLE')
     parser.add_argument('--add_special_tokens', type=bool, default=True, help='add special tokens')
     parser.add_argument('--add_entity_desc', type=bool, default=True)
@@ -555,30 +551,30 @@ if __name__ == '__main__':
     np.random.seed(args.seed)
 
     # 1. entity.json/relation.json制作
-    save_triple2text(f'{args.data_dir}/{args.dataset}', 'train2id.txt', 'train.txt')
-    save_triple2text(f'{args.data_dir}/{args.dataset}', 'test2id.txt', 'test.txt')
-    save_triple2text(f'{args.data_dir}/{args.dataset}', 'valid2id.txt', 'valid.txt')
-    save_ent2desc(f'{args.data_dir}/{args.dataset}')
-    save_rel2desc(f'{args.data_dir}/{args.dataset}')
-    print("Done1!!!")
+    # save_triple2text(f'{args.data_dir}/{args.dataset}', 'train2id.txt', 'train.txt')
+    # save_triple2text(f'{args.data_dir}/{args.dataset}', 'test2id.txt', 'test.txt')
+    # save_triple2text(f'{args.data_dir}/{args.dataset}', 'valid2id.txt', 'valid.txt')
+    # save_ent2desc(f'{args.data_dir}/{args.dataset}')
+    # save_rel2desc(f'{args.data_dir}/{args.dataset}')
+    # print("Done1!!!")
 
     # 2. 提示词制作
-    # tokenizer = AutoTokenizer.from_pretrained(args.llm_dir, use_fast=False)
-    #
-    # tokenizer.pad_token = tokenizer.eos_token
-    # graph = KnowledgeGraph(args, tokenizer)
-    #
-    # if args.kge_model == 'Flare':
-    #     valid_data, test_data = Flare_preprocess(args, graph)
-    # else:
-    #     raise NotImplementedError()
-    #
-    # os.makedirs(f'{args.output_dir}', exist_ok=True)
-    # llm_train, llm_valid = divide_valid(args, valid_data)
-    # train_examples = make_dataset_mp(llm_train, graph, os.path.join(args.output_dir, 'train.json'))
-    # valid_examples = make_dataset_mp(llm_valid, graph, os.path.join(args.output_dir, 'valid.json'))
-    # test_examples = make_dataset_mp(test_data, graph, os.path.join(args.output_dir, 'test.json'))
-    #
-    # args = vars(args)
-    #
-    # print('Done2!!!')
+    tokenizer = AutoTokenizer.from_pretrained(args.llm_dir, use_fast=False)
+
+    tokenizer.pad_token = tokenizer.eos_token
+    graph = KnowledgeGraph(args, tokenizer)
+
+    if args.kge_model == 'Flare':
+        valid_data, test_data = Flare_preprocess(args, graph)
+    else:
+        raise NotImplementedError()
+
+    os.makedirs(f'{args.output_dir}', exist_ok=True)
+    llm_train, llm_valid = divide_valid(args, valid_data)
+    train_examples = make_dataset_mp(llm_train, graph, os.path.join(args.output_dir, 'train.json'))
+    valid_examples = make_dataset_mp(llm_valid, graph, os.path.join(args.output_dir, 'valid.json'))
+    test_examples = make_dataset_mp(test_data, graph, os.path.join(args.output_dir, 'test.json'))
+
+    args = vars(args)
+
+    print('Done2!!!')

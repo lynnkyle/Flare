@@ -71,7 +71,7 @@ torch.backends.cudnn.benchmark = False
 """
     mkg-y
 """
-torch.cuda.set_device(1)
+torch.cuda.set_device(0)
 parser = argparse.ArgumentParser()
 parser.add_argument('--data', type=str, default='MKG-W')
 parser.add_argument('--batch_size', type=int, default=2048)
@@ -179,7 +179,40 @@ def train_one_epoch(model, optimizer):
     return total_loss
 
 
-def train_one_epoch_with_negative_sampling(model, optimizer):
+# 方式三的训练方式
+# def train_one_epoch_with_negative_sampling(model, optimizer):
+#     model.train()
+#     total_loss = 0
+#     margin_ranking_loss_fn = torch.nn.MarginRankingLoss(margin=0.1)
+#     cross_entropy_loss_fn = torch.nn.CrossEntropyLoss()
+#     for batch, label, filter_mask in kg_loader:
+#         # 1.embedding
+#         ent_embs, rel_embs, align_before_loss = model()
+#         # 2.样本score
+#         score = model.score(batch.cuda(), ent_embs, rel_embs)
+#         # 5.cross_entropy
+#         loss = cross_entropy_loss_fn(score, label.cuda())
+#         if args.align_former is not False:
+#             if args.entity_align != 0:
+#                 loss += args.entity_align * align_before_loss
+#         if args.contrastive != 0:
+#             loss += args.contrastive * model.contrastive_loss(ent_embs)
+#         total_loss += loss.item()
+#
+#         # 3.正负样本logit
+#         pos_logit, neg_logit = model.pos_neg_logits_vectorized(score, label.cuda(), filter_mask.cuda())
+#         # 4.margin_loss
+#         target = torch.ones_like(neg_logit)
+#         res = margin_ranking_loss_fn(pos_logit, neg_logit, target)
+#         loss += 50 * res
+#         optimizer.zero_grad()
+#         loss.backward()
+#         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=0.1)
+#         optimizer.step()
+#     return total_loss
+
+# 方式四的训练方式
+def train_one_epoch_with_negative_sampling_topk(model, optimizer):
     model.train()
     total_loss = 0
     margin_ranking_loss_fn = torch.nn.MarginRankingLoss(margin=0.1)
@@ -199,11 +232,12 @@ def train_one_epoch_with_negative_sampling(model, optimizer):
         total_loss += loss.item()
 
         # 3.正负样本logit
-        pos_logit, neg_logit = model.pos_neg_logits_vectorized(score, label.cuda(), filter_mask.cuda())
+        pos_logit, neg_logit = model.pos_neg_logits_vectorized_topk(score, label.cuda(), filter_mask.cuda(), neg_num=5)
+        pos_expand = pos_logit.unsqueeze(1).expand_as(neg_logit)  # [B, n]
         # 4.margin_loss
         target = torch.ones_like(neg_logit)
-        res = margin_ranking_loss_fn(pos_logit, neg_logit, target)
-        loss += 5 * res
+        res = margin_ranking_loss_fn(pos_expand.reshape(-1), neg_logit.reshape(-1), target.reshape(-1))
+        loss += 10 * res
         optimizer.zero_grad()
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=0.1)
@@ -246,7 +280,7 @@ best_mrr = 0
 best_result = None
 checkpoint_path = ""
 for epoch in range(args.num_epoch):
-    loss = train_one_epoch_with_negative_sampling(model, optimizer)
+    loss = train_one_epoch_with_negative_sampling_topk(model, optimizer)
     lr_scheduler.step()
     logger.info(f'Epoch {epoch + 1}/{args.num_epoch}, Loss: {loss:.4f}')
     if (epoch + 1) % args.valid_epoch == 0:
